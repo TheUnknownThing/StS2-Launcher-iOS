@@ -38,6 +38,7 @@ def main():
         name = PurePosixPath(path)
         if (set(name.parts) & FORBIDDEN_PARTS or name.suffix.lower() in FORBIDDEN_SUFFIXES
                 or ".save." in name.name or name.name.endswith(".local.json")
+                or name.name in {"lan.cfg", "resource-mods.cfg"}
                 or path.startswith(("ios/build/", "ios/prebuilt/", "ios/addons/", "src/STS2Mobile/", "src/stubs/"))
                 or any(part.endswith((".framework", ".xcframework", ".dSYM")) for part in name.parts)):
             errors.append(f"{path}: private/generated artifact is staged")

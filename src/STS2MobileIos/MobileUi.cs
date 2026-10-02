@@ -82,6 +82,14 @@ public static class MobileUi
         var steam = new Button { Text = "Steam Cloud", CustomMinimumSize = new Vector2(0, 48) };
         list.AddChild(steam);
         steam.Pressed += () => { panel.Hide(); cloud.Show(); };
+        var lan = new Lan.LanPanel(root);
+        var multiplayer = new Button { Text = "LAN multiplayer", CustomMinimumSize = new Vector2(0, 48) };
+        list.AddChild(multiplayer);
+        multiplayer.Pressed += () => { panel.Hide(); lan.Show(); };
+        var mods = new Mods.ModsPanel(root);
+        var modButton = new Button { Text = "Resource mods", CustomMinimumSize = new Vector2(0, 48) };
+        list.AddChild(modButton);
+        modButton.Pressed += () => { panel.Hide(); mods.Show(); };
         var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(0, 44) };
         list.AddChild(close);
         close.Pressed += () => panel.Hide();
@@ -98,6 +106,7 @@ public static class MobileUi
         Frames.ResetClock();
         Frames.ClearSample();
         CardInspectPatches.Cancel();
+        Lan.LanSession.SetSuspended(value);
     }
 
     private static void Tick()
@@ -105,6 +114,7 @@ public static class MobileUi
         if (_suspended)
             return;
         CardInspectPatches.Tick();
+        Lan.LanSession.Tick();
         if (!_showFps)
             return;
         Frames.Tick(Time.GetTicksUsec());

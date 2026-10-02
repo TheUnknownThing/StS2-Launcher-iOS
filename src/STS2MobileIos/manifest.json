@@ -216,6 +216,41 @@
       "kind": "postfix",
       "hookType": "STS2MobileIos.Patches.AudioPatches",
       "hookMethod": "ReadyPostfix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Modding.ModManager",
+      "targetMethod": "Initialize",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Mods.ResourceMods",
+      "hookMethod": "InitializePrefix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Modding.ModManager",
+      "targetMethod": "ReadModsInDirRecursive",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Mods.ResourceMods",
+      "hookMethod": "ScanPrefix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.Screens.MainMenu.NMultiplayerSubmenu",
+      "targetMethod": "OnHostPressed",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Patches.LanPatches",
+      "hookMethod": "OpenMenuPrefix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.Screens.MainMenu.NMultiplayerSubmenu",
+      "targetMethod": "StartLoad",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Patches.LanPatches",
+      "hookMethod": "OpenMenuPrefix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.Screens.MainMenu.NMultiplayerSubmenu",
+      "targetMethod": "OpenJoinFriendsScreen",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Patches.LanPatches",
+      "hookMethod": "OpenMenuPrefix"
     }
   ]
 }

@@ -124,8 +124,10 @@ and changed cloud files. Browser tests cover modded/vanilla separation, history
 sorting, and import eligibility. A private Godot probe using the installed game
 assembly verified that unknown historical references in a vanilla progress save
 survive a load/serialize cycle; source tests distinguish those references from
-destructive repairs and fatal errors. Device validation of the import and continued
-gameplay is pending.
+destructive repairs and fatal errors. Vanilla profile import has been confirmed
+on iPad; continued gameplay across every imported save variant remains unverified.
+Import is blocked during a LAN session and while resource mods are active. Disable
+resource mods and restart before importing vanilla progress.
 
 ```sh
 dotnet run --project tests/cloud/CloudTests.csproj -c Release

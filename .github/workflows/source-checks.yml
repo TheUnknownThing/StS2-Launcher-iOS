@@ -26,5 +26,7 @@ jobs:
         run: dotnet run --project tests/ios/FrameWindowTests.csproj -c Release
       - name: Test cloud integrity and save isolation
         run: dotnet run --project tests/cloud/CloudTests.csproj -c Release
+      - name: Check LAN addresses and resource-mod policy offline
+        run: dotnet run --project tests/features/FeatureTests.csproj -c Release
       - name: Build static patch weaver
         run: dotnet build src/STS2Weaver -c Release

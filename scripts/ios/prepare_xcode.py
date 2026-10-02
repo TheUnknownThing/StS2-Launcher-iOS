@@ -67,6 +67,8 @@ def main():
         info["godot_cmdline"] += ["--", "--sts2-profile"]
     info["UIFileSharingEnabled"] = True
     info["LSSupportsOpeningDocumentsInPlace"] = True
+    info["NSLocalNetworkUsageDescription"] = "Find and join Slay the Spire 2 games on your Wi-Fi network."
+    info["NSBonjourServices"] = ["_sts2lan._udp"]
     orientations = ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
     info["UISupportedInterfaceOrientations"] = orientations
     info["UISupportedInterfaceOrientations~ipad"] = orientations

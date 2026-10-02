@@ -22,9 +22,10 @@ the game; this repository contains porting code and tools, not game files or an 
 | Local saves and app upgrades | Separate iOS saves; preserved when upgrading the same app |
 | Background/resume | Audio and scene pause/resume hooks implemented |
 | Game download on the device | Not implemented; prepare content on a Mac |
-| Steam Cloud | QR login/downloads tested on iPad; vanilla profile import experimental; [status and limits](docs/steam-cloud.md) |
-| Desktop mods and modded saves | Unsupported |
-| Multiplayer | Not validated; LAN discovery is not implemented |
+| Steam Cloud | QR login, downloads, and vanilla profile import confirmed on iPad; [status and limits](docs/steam-cloud.md) |
+| Resource mods | Experimental cosmetic PCK loader and menu; static checks only; [compatibility](docs/mods.md) |
+| C# mods and modded Cloud imports | Not supported; individual code mods need AOT ports |
+| LAN multiplayer | Host/join, host-save resume, and Bonjour discovery implemented; static checks only; [guide](docs/multiplayer.md) |
 | iPhone, simulator and App Store distribution | Not validated / not provided by this workflow |
 
 ## Build and play

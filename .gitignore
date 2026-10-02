@@ -33,6 +33,9 @@ logs/
 *.local.json
 cloud-downloads/
 save-backups/
+lan.cfg
+resource-mods.cfg
+/mods/
 
 # IDE
 .DS_Store

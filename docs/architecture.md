@@ -38,6 +38,17 @@ testing of the affected paths.
 No runtime JIT or Harmony patching is required by this workflow. Desktop mods
 that depend on those mechanisms are not supported by implication.
 
+`Mods/ResourceMods` adapts the game's startup mod scan to `Documents/mods`,
+exposing only enabled cosmetic packs accepted by the resource policy. The
+original mod loader retains version validation, resource registration, and
+modded save isolation. See [mod support](mods.md) for the supported subset.
+
+`Lan/LanSession` opens the game's ENet transport and hands successful sessions to
+its character-selection/load lobbies. `JoinFlow` performs the original handshake
+and lobby exchange. A persistent client ID is separate from the local save
+account ID. Bonjour in the native bridge advertises waiting hosts and resolves
+nearby IPv4 endpoints; game traffic stays on ENet. See [LAN support](multiplayer.md).
+
 ## Host and native extensions
 
 The Godot exporter receives a separate shell under `.cache/ios-host`, without a

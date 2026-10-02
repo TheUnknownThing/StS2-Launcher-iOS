@@ -70,6 +70,12 @@ profile. Select it using the game's profile picker. See the Cloud guide for
 compatibility checks and restrictions. Automatic synchronization and uploads are
 not enabled. Credentials are stored in the iOS Keychain.
 
+[Resource mods](mods.md) use the game's separate `default/1/modded` save tree,
+which the backup command also includes. Vanilla Cloud import is disabled while
+mods are active. [LAN clients](multiplayer.md) also need `Documents/lan.cfg` to
+retain their identity in a host's save; keep that file separately when migrating
+an installation, since the backup command currently copies only `default`.
+
 Do not include saves or backups in pull requests or public bug reports. A short
 description of the profile type, game version and reproduction steps is usually
 enough to start investigation.

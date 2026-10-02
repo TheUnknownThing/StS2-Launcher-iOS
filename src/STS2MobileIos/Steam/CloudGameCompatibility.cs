@@ -12,8 +12,10 @@ internal static class CloudGameCompatibility
 {
     public static void RequireMainMenu()
     {
+        if (UserDataPathProvider.IsRunningModded)
+            throw new InvalidOperationException("Disable resource mods and restart before importing a vanilla Cloud profile.");
         if (NGame.Instance?.MainMenu == null || NRun.Instance != null
-            || RunManager.Instance.IsInProgress || !SaveManager.Instance.IsProfileInitialized
+            || RunManager.Instance.IsInProgress || Lan.LanSession.Busy || !SaveManager.Instance.IsProfileInitialized
             || SaveManager.Instance.CurrentRunSaveTask is { IsCompleted: false })
             throw new InvalidOperationException("Return to the main menu and finish saving before importing a profile.");
     }

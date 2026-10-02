@@ -17,6 +17,14 @@ internal static class NativeBridge
     private delegate IntPtr ImageCall([MarshalAs(UnmanagedType.LPUTF8Str)] string value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void FreeCall(IntPtr value);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int PortCall(int port);
+
+    public static void BrowseLan() => Function<StatusCall>("sts2_lan_browse")();
+    public static void StopLanBrowse() => Function<StatusCall>("sts2_lan_browse_stop")();
+    public static void PublishLan(ushort port) => Function<PortCall>("sts2_lan_publish")(port);
+    public static void StopLanPublish() => Function<StatusCall>("sts2_lan_publish_stop")();
+    public static string LanSnapshot() => Read("sts2_lan_snapshot");
 
     private static T Function<T>(string name) where T : Delegate
     {
