@@ -9,9 +9,13 @@ vanilla profile import. Uploading iPad progress to Steam is not implemented.
 1. Tap **Connect Steam**.
 2. Scan the QR code with the Steam mobile app on your phone.
 3. Review the **StS2 iOS** login request and approve it in Steam.
-4. Select a cloud file to view its path, size, modification time, and path-based
-   mod classification.
-5. Tap **Download a separate copy** to archive that file on the iPad. Open
+4. Choose **Vanilla** or **Modded**, then **Saves**, **Run history (.run)**, or
+   **Other files**. The menu opens on **Vanilla > Saves**, with progress and unlocks
+   first. Each tab shows its file count; history is sorted newest first.
+5. Select a file to view its path, size, and modification time in the details pane.
+   Import controls are shown only for vanilla profile saves. A preview checks
+   compatibility before the import can be confirmed.
+6. Tap **Download a separate copy** to archive that file on the iPad. Open
    **Files > On My iPad > StS2 iOS > cloud-downloads** to find it.
 
 Common files in each `profileN/saves/` directory:
@@ -60,17 +64,22 @@ and account details must not be included in public bug reports or commits.
 
 1. Close the desktop game and let Steam finish syncing. Keep it closed during import.
 2. Return to the iPad game's main menu and open **iOS > Steam Cloud**.
-3. Select `progress.save`, `prefs.save`, or `current_run.save` under a vanilla
-   `profile1/saves/`, `profile2/saves/`, or `profile3/saves/` path.
+3. Under **Vanilla > Saves**, select **Progress & unlocks**, **Preferences**, or
+   **Current run** for the desired profile. The details pane shows the original
+   file path and available iPad destination slots.
 4. Choose whether to **Include current run when importing**. Turn this off if
-   there is no current run or you only want progress and unlocks.
-5. Tap **Preview profile import**. Review the source, destination slot, playtime,
+   you only want progress and unlocks. If there is no current run, this option is
+   automatically turned off and disabled.
+5. Tap **Preview Profile N import**. Review the source, destination slot, playtime,
    and current-run details, then tap **Import into Profile N**.
 6. Close the panel, tap the profile name at the top left of the main menu, and
    select the imported profile. Use **Continue** if you imported a current run.
 
-Import requires a profile slot whose directory does not yet exist. It never
-merges or replaces existing profiles. The launcher checks save schemas against
+Import requires an inactive slot with no saved files. Empty profile directories
+created by the game, including empty `saves/history` directories, are eligible.
+An active profile, any saved file (including backups), or a symbolic link makes
+a slot unavailable. The destination is checked again before import; existing
+save files are never replaced. The launcher checks save schemas against
 the installed game, uses the game's progress validator, and rejects progress
 that needs repair or references unavailable content. Current runs must be regular
 single-player runs, pass deserialization, and reference available game models.
@@ -107,8 +116,10 @@ request and a client-protocol request also run in a macOS NativeAOT test executa
 QR approval, restoring a saved login, authenticated Cloud listing, and downloading
 a separate copy have been exercised on the iPad. This validates the browser and
 archive flow; it does not establish save compatibility or synchronization.
-Profile import has source tests for occupied slots, backup failures, and changed
-cloud files. Device validation of the import and continued gameplay is pending.
+Profile import has source tests for empty and occupied slots, backup failures,
+and changed cloud files. Browser tests cover modded/vanilla separation, history
+sorting, and import eligibility. Device validation of the import and continued
+gameplay is pending.
 
 ```sh
 dotnet run --project tests/cloud/CloudTests.csproj -c Release

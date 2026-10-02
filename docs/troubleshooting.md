@@ -21,6 +21,7 @@ is excluded from Git. Share only a small, redacted excerpt when reporting a bug.
 | No audio | Check in-game volume and the iPad's output route. The native host uses the playback audio session, including in Silent Mode; rebuild/install if upgrading from the initial prototype. |
 | Cannot right-click a card | Hold a card in a card list for about half a second to open its upgraded preview. Moving your finger cancels the hold; combat hand dragging is unchanged. |
 | Steam cannot connect | Retry with a working connection; disconnect and reconnect for an expired session. Cloud downloads are experimental and kept separately from active saves. |
+| No available iPad profile slot | Check the slot status under **Vanilla > Saves**. Import accepts an inactive slot with no files, including empty directories created by the game. Profiles containing saves, history, or backups are preserved. |
 
 ## Capture useful output
 

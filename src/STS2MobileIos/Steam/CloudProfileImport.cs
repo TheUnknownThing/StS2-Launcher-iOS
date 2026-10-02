@@ -58,9 +58,30 @@ public static class CloudProfileImport
         for (int slot = 1; slot <= 3; slot++)
         {
             string path = Path.Combine(accountDirectory, "profile" + slot);
-            if (slot != activeSlot && !Path.Exists(path)) return slot;
+            if (slot != activeSlot && IsEmptySlot(path)) return slot;
         }
-        throw new InvalidOperationException("No unused iPad profile slot is available. Existing profiles will not be replaced.");
+        throw new InvalidOperationException("All three iPad profile slots are active or contain saved files. Existing profiles will not be replaced.");
+    }
+
+    public static bool IsEmptySlot(string path)
+    {
+        if (!Path.Exists(path)) return true;
+        try
+        {
+            var pending = new Stack<string>();
+            pending.Push(path);
+            int count = 0;
+            while (pending.TryPop(out string directory))
+            {
+                var attributes = File.GetAttributes(directory);
+                if (++count > 10_000 || (attributes & FileAttributes.ReparsePoint) != 0
+                    || (attributes & FileAttributes.Directory) == 0) return false;
+                foreach (string entry in Directory.EnumerateFileSystemEntries(directory)) pending.Push(entry);
+            }
+            return true;
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
     }
 
     public static CloudImportReceipt Commit(string accountDirectory, string snapshotDirectory, int slot,
@@ -72,7 +93,7 @@ public static class CloudProfileImport
                 || pair.Value.Length > SteamCloudClient.MaximumSaveBytes))
             throw new InvalidOperationException("Invalid profile import.");
         string destination = Path.Combine(accountDirectory, "profile" + slot);
-        if (Path.Exists(destination))
+        if (!IsEmptySlot(destination))
             throw new InvalidOperationException("The selected iPad slot is no longer unused. Preview again.");
         Directory.CreateDirectory(snapshotDirectory);
         string id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N");
@@ -100,7 +121,9 @@ public static class CloudProfileImport
             Directory.Move(pending, snapshot);
             foreach (var pair in copy.Data)
                 WriteNew(Path.Combine(staging, "saves", pair.Key), pair.Value);
-            // Publish a complete profile in one rename; an occupied slot makes this fail.
+            // The game can pre-create empty profile/saves/history directories.
+            // Non-recursive deletion fails if a file appears before publication.
+            if (Directory.Exists(destination)) RemoveEmptyDirectories(destination);
             Directory.Move(staging, destination);
             return new(slot, snapshot);
         }
@@ -109,6 +132,14 @@ public static class CloudProfileImport
             if (Directory.Exists(pending)) Directory.Delete(pending, true);
             if (Directory.Exists(staging)) Directory.Delete(staging, true);
         }
+    }
+
+    private static void RemoveEmptyDirectories(string directory)
+    {
+        if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("The destination slot changed. Preview the import again.");
+        foreach (string child in Directory.EnumerateDirectories(directory)) RemoveEmptyDirectories(child);
+        Directory.Delete(directory, recursive: false);
     }
 
     private static void BackupDirectory(string source, string destination, string relative, JsonArray manifest,

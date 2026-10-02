@@ -141,6 +141,9 @@ try
     var file = new CloudFile("profile1/saves/progress.save", data.Length, 123, checksum);
     var copy = new CloudProfileCopy("profile1", new[] { file }, new() { ["progress.save"] = data });
     Check(CloudProfileImport.FindUnusedSlot(account, 1) == 2, "Occupied slot selected");
+    Directory.CreateDirectory(Path.Combine(account, "profile2", "saves", "history"));
+    Check(CloudProfileImport.FindUnusedSlot(account, 1) == 2, "Empty pre-created profile rejected");
+    Check(CloudProfileImport.FindUnusedSlot(account, 2) == 3, "Active empty profile offered as destination");
     var receipt = CloudProfileImport.Commit(account, backups, 2, copy, "test-account");
     Check(File.ReadAllBytes(Path.Combine(account, "profile2", "saves", "progress.save")).SequenceEqual(data), "Import changed bytes");
     Check(File.ReadAllBytes(Path.Combine(receipt.Snapshot, "local", "profile1", "saves", "progress.save")).SequenceEqual(data), "Backup missing original save");
@@ -157,6 +160,20 @@ try
     Check(!Directory.Exists(Path.Combine(account, "profile3")), "Failed backup published a profile");
     Check(!Directory.EnumerateDirectories(backups, ".pending-*").Any(), "Failed backup leaked a partial snapshot");
 
+    string third = Path.Combine(account, "profile3");
+    Directory.CreateDirectory(Path.Combine(third, "saves"));
+    File.WriteAllText(Path.Combine(third, "saves", "progress.save.backup"), "retained backup");
+    Check(!CloudProfileImport.IsEmptySlot(third), "Backup-only profile treated as empty");
+    try { CloudProfileImport.FindUnusedSlot(account, 1); throw new Exception("Saved profile offered for reuse"); }
+    catch (InvalidOperationException) { }
+    try { CloudProfileImport.Commit(account, backups, 3, copy, "test-account"); throw new Exception("New file in target slot overwritten"); }
+    catch (InvalidOperationException) { }
+    Check(File.ReadAllText(Path.Combine(third, "saves", "progress.save.backup")) == "retained backup", "Target backup changed");
+    string linkedSlot = Path.Combine(importRoot, "linked-slot");
+    Directory.CreateSymbolicLink(linkedSlot, third);
+    Check(!CloudProfileImport.IsEmptySlot(linkedSlot), "Linked slot treated as empty");
+    Directory.Delete(linkedSlot);
+
     client.CloudTransport = (_, _, _) => Task.FromResult<JsonNode>(new JsonObject {
         ["total_files"] = 1, ["files"] = new JsonArray(new JsonObject {
             ["filename"] = file.Name, ["file_size"] = file.Size, ["timestamp"] = file.Timestamp + 1, ["file_sha"] = checksum,
@@ -167,6 +184,30 @@ try
 }
 finally { if (Directory.Exists(importRoot)) Directory.Delete(importRoot, true); }
 Console.WriteLine("Profile import isolation, backup, and conflict tests passed.");
+
+var browserFiles = new[] {
+    new CloudFile("modded/profile1/saves/progress.save", 10, 500, ""),
+    new CloudFile("profile1/saves/history/old.run", 10, 100, ""),
+    new CloudFile("profile1/saves/prefs.save", 10, 500, ""),
+    new CloudFile("profile.save", 10, 500, ""),
+    new CloudFile("modded/profile1/saves/history/new.run", 10, 900, ""),
+    new CloudFile("profile1/saves/progress.save", 10, 500, ""),
+    new CloudFile("profile2/saves/current_run.save", 10, 600, ""),
+    new CloudFile("profile1/saves/history/recent.run", 10, 800, ""),
+    new CloudFile("profile1/saves/current_run_mp.save", 10, 500, ""),
+}.Select(CloudBrowser.Describe).ToList();
+var vanillaSaves = CloudBrowser.Filter(browserFiles, false, CloudFileKind.Saves);
+Check(vanillaSaves.Count == 3 && vanillaSaves[0].File.Name == "profile1/saves/progress.save", "Save list did not prioritize progress");
+Check(vanillaSaves.All(entry => entry.ImportProfile != null), "Archive-only file appeared as importable");
+var moddedSaves = CloudBrowser.Filter(browserFiles, true, CloudFileKind.Saves);
+Check(moddedSaves.Count == 1 && moddedSaves[0].ImportProfile == null, "Modded save offered for import");
+var history = CloudBrowser.Filter(browserFiles, false, CloudFileKind.History);
+Check(history.Count == 2 && history[0].File.Name.EndsWith("recent.run") && history.All(entry => entry.ImportProfile == null), "History mixed with saves or ordered incorrectly");
+Check(CloudBrowser.Filter(browserFiles, true, CloudFileKind.History).Count == 1, "Modded history mixed with vanilla");
+Check(CloudBrowser.Filter(browserFiles, false, CloudFileKind.Other).Count == 2, "Account/multiplayer files offered for import");
+Check(CloudBrowser.Filter(browserFiles, true, CloudFileKind.Other).Count == 0, "Empty category returned files");
+Check(CloudBrowser.Describe(new("profile1/../profile2/saves/progress.save", 10, 500, "")).ImportProfile == null, "Unsafe path offered for import");
+Console.WriteLine("Cloud browser grouping, import eligibility, and sorting tests passed.");
 
 sealed class FakeHandler(Queue<HttpResponseMessage> responses) : HttpMessageHandler
 {

@@ -10,5 +10,6 @@
     <Compile Include="../../src/STS2MobileIos/Steam/SteamWire.cs" Link="SteamWire.cs" />
     <Compile Include="../../src/STS2MobileIos/Steam/SteamCmConnection.cs" Link="SteamCmConnection.cs" />
     <Compile Include="../../src/STS2MobileIos/Steam/CloudProfileImport.cs" Link="CloudProfileImport.cs" />
+    <Compile Include="../../src/STS2MobileIos/Steam/CloudBrowser.cs" Link="CloudBrowser.cs" />
   </ItemGroup>
 </Project>
