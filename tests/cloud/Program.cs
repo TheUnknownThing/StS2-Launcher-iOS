@@ -209,6 +209,18 @@ Check(CloudBrowser.Filter(browserFiles, true, CloudFileKind.Other).Count == 0, "
 Check(CloudBrowser.Describe(new("profile1/../profile2/saves/progress.save", 10, 500, "")).ImportProfile == null, "Unsafe path offered for import");
 Console.WriteLine("Cloud browser grouping, import eligibility, and sorting tests passed.");
 
+Check(ProgressImportWarnings.IsRetainedHistory(false, "CardStats.[491]", "Unknown card ID: CARD.RETIRED_CARD"), "Retained card history blocked");
+Check(ProgressImportWarnings.IsRetainedHistory(false, "EncounterStats.[86]", "Unknown encounter ID: ENCOUNTER.RETIRED_ENCOUNTER"), "Retained encounter history blocked");
+Check(ProgressImportWarnings.IsRetainedHistory(false, "EnemyStats.[107]", "Unknown enemy ID: MONSTER.RETIRED_MONSTER"), "Retained enemy history blocked");
+Check(ProgressImportWarnings.IsRetainedHistory(false, "DiscoveredCards", "Unknown CardModel ID: CARD.RETIRED_CARD"), "Retained discovery blocked");
+Check(!ProgressImportWarnings.IsRetainedHistory(true, "DiscoveredCards", "Unknown CardModel ID: CARD.RETIRED_CARD"), "Fatal warning allowed");
+Check(!ProgressImportWarnings.IsRetainedHistory(false, "EncounterStats.[0].FightStats.[0]", "Unknown character ID: CHARACTER.RETIRED_CHARACTER, removing"), "Destructive nested repair allowed");
+Check(!ProgressImportWarnings.IsRetainedHistory(false, "CardStats.[0]", "Negative TimesPicked (-1), clamping to 0"), "Stat repair silently allowed");
+Check(!ProgressImportWarnings.IsRetainedHistory(false, "Epochs.[0]", "Unknown epoch ID: OldEpoch"), "Unreviewed unlock warning allowed");
+Check(!ProgressImportWarnings.IsRetainedHistory(false, "CardStats.[0]", "Unknown card ID: CARD.RETIRED_CARD, removing"), "Changed validator behavior silently allowed");
+Check(ProgressImportWarnings.Summary(5).Contains("remain in the save"), "Preview does not explain retained references");
+Console.WriteLine("Historical progress compatibility tests passed.");
+
 sealed class FakeHandler(Queue<HttpResponseMessage> responses) : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)

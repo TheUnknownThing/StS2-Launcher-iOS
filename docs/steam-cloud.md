@@ -80,8 +80,11 @@ created by the game, including empty `saves/history` directories, are eligible.
 An active profile, any saved file (including backups), or a symbolic link makes
 a slot unavailable. The destination is checked again before import; existing
 save files are never replaced. The launcher checks save schemas against
-the installed game, uses the game's progress validator, and rejects progress
-that needs repair or references unavailable content. Current runs must be regular
+the installed game and uses the game's progress validator. Unknown historical
+stats and discovered-item references that the game preserves are allowed, with
+a compatibility note in the preview. The original imported bytes remain intact;
+unavailable content will not appear in the iPad game. Other repair warnings and
+fatal errors stop the import and display the specific reason. Current runs must be regular
 single-player runs, pass deserialization, and reference available game models.
 These checks reduce compatibility problems; matching schemas alone cannot
 guarantee compatibility across different game builds.
@@ -118,7 +121,10 @@ a separate copy have been exercised on the iPad. This validates the browser and
 archive flow; it does not establish save compatibility or synchronization.
 Profile import has source tests for empty and occupied slots, backup failures,
 and changed cloud files. Browser tests cover modded/vanilla separation, history
-sorting, and import eligibility. Device validation of the import and continued
+sorting, and import eligibility. A private Godot probe using the installed game
+assembly verified that unknown historical references in a vanilla progress save
+survive a load/serialize cycle; source tests distinguish those references from
+destructive repairs and fatal errors. Device validation of the import and continued
 gameplay is pending.
 
 ```sh

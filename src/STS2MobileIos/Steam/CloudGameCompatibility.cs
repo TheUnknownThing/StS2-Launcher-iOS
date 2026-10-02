@@ -25,8 +25,14 @@ internal static class CloudGameCompatibility
         var context = new DeserializationContext();
         try { _ = ProgressState.FromSerializable(progress, context); }
         catch { throw new InvalidOperationException("This progress save cannot be loaded by the installed game."); }
-        if (context.Errors.Count != 0)
-            throw new InvalidOperationException("This progress save contains unavailable content or needs repair. It can only be archived.");
+        var blocking = context.Errors.Where(error =>
+            !ProgressImportWarnings.IsRetainedHistory(error.IsFatal, error.Path, error.Message)).ToList();
+        if (blocking.Count != 0)
+        {
+            string reason = string.Join("; ", blocking.Take(3).Select(error => error.Path + ": " + error.Message));
+            reason = new string(reason.Where(character => !char.IsControl(character)).Take(500).ToArray());
+            throw new InvalidOperationException("This progress save needs a repair that import cannot apply: " + reason);
+        }
         if (copy.Data.TryGetValue("prefs.save", out var prefs)) _ = Read<PrefsSave>(prefs);
         string details = $"{progress.NumberOfRuns} completed runs | {progress.TotalPlaytime / 3600.0:F1} hours played";
         if (copy.Data.TryGetValue("current_run.save", out var bytes))
@@ -44,7 +50,7 @@ internal static class CloudGameCompatibility
             details += $"\nCurrent run: {run.Players[0].CharacterId.Entry}, act {run.CurrentActIndex + 1}, ascension {run.Ascension}";
         }
         else details += "\nProgress and preferences only; no current run or run history.";
-        return details;
+        return details + ProgressImportWarnings.Summary(context.Errors.Count);
     }
 
     private static T Read<T>(byte[] bytes) where T : ISaveSchema, new()
