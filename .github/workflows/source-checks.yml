@@ -1,0 +1,28 @@
+name: Source checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  source-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Check repository contents and documentation links
+        run: python3 scripts/check_repository.py
+      - name: Test content tooling and benchmark reports
+        run: python3 -m unittest discover -s scripts/ios -p 'test_*.py'
+      - name: Test frame accounting
+        run: dotnet run --project tests/ios/FrameWindowTests.csproj -c Release
+      - name: Build static patch weaver
+        run: dotnet build src/STS2Weaver -c Release

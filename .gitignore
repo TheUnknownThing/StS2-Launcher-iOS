@@ -1,0 +1,64 @@
+# Local toolchains, dependency sources, and game inputs
+.cache/
+.tools/
+**/.godot/
+vendor/
+upstream/
+.venv/
+venv/
+
+# Downloaded archives and game content
+*.tar.gz
+*.zip
+*.tpz
+*.pck
+
+# Logs
+logs.txt
+*.log
+*.jsonl
+*.ndjson
+*.ips
+*.crash
+logs/
+
+# Local game saves and authentication/signing material
+*.save
+*.save.*
+*.mobileprovision
+*.p12
+*.p8
+*.key
+*.pem
+*.local.json
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*
+*.user
+*.suo
+
+# .NET
+*.nupkg
+
+# iOS dependencies, local configuration, and generated artifacts
+**/bin/
+**/obj/
+ios/build/
+ios/prebuilt/
+ios/addons/
+ios/config.local.json
+ios/export_presets.cfg
+*.ipa
+*.dylib
+*.xcuserstate
+**/__pycache__/
+*.pyc
+*.dll
+*.pdb
+*.dSYM/
+*.framework/
+*.xcframework/
