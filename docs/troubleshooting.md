@@ -18,6 +18,9 @@ is excluded from Git. Share only a small, redacted excerpt when reporting a bug.
 | New game version crashes | Rebuild managed code and content from the same installation. NativeAOT success alone does not prove runtime compatibility. |
 | UI or card dragging behaves incorrectly | Report the screen, device size, game version, and exact touch gesture. iPhone layouts are not validated. |
 | Brief hitch on a new scene/effect | Shader/resource loading may stall. Capture frame timings before changing rendering settings. |
+| No audio | Check in-game volume and the iPad's output route. The native host uses the playback audio session, including in Silent Mode; rebuild/install if upgrading from the initial prototype. |
+| Cannot right-click a card | Hold a card in a card list for about half a second to open its upgraded preview. Moving your finger cancels the hold; combat hand dragging is unchanged. |
+| Steam cannot connect | Retry with a working connection; disconnect and reconnect for an expired session. Cloud downloads are experimental and kept separately from active saves. |
 
 ## Capture useful output
 

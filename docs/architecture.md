@@ -25,7 +25,8 @@ general implementation of Harmony. Patch signatures must match the game version.
 
 The hooks adapt platform startup, local settings, touch input, UI layouts and
 background/resume. Steam initialization and unavailable Sentry functionality are
-skipped. Steam login and cloud sync are not implemented.
+skipped. Steam login and the Cloud browser use separate HTTPS/TLS WebSocket clients; active
+game saves remain local and automatic cloud sync is not implemented.
 
 `ios/sts2.csproj` creates an empty build assembly and then replaces it with the
 woven `sts2.dll` after `CoreCompile` and before `IlcCompile`. NativeAOT compiles
@@ -48,6 +49,17 @@ the game's empty custom-FMOD-plugin list, landscape orientations and file sharin
 The app launches with `--main-pack user://StS2.pck`. The game pack supplies the
 actual project settings and scenes; the small shell PCK in `ios/build` is not a
 replacement for the game content.
+
+`ios/Sts2Native.mm` is included by the generated Objective-C++ host. It activates
+the iOS playback audio session, stores Steam refresh tokens in Keychain, and
+generates login QR images using Core Image. The executable exports native bridge
+functions while preserving FMOD's plugin-registration symbols. Managed hooks
+resolve bridge functions from the process at runtime.
+
+`MobileUi` creates a separate canvas layer for the FPS display and iOS menu.
+Long presses on card-list holders open the game's existing upgraded-card
+inspection screen and consume the release so the card is not selected or bought.
+Combat hand dragging retains its original input behavior.
 
 ## Content compatibility
 

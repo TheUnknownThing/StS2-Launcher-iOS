@@ -47,6 +47,12 @@ tree. The project's MIT license does not replace any dependency's own terms.
 - **Copyright**: (c) .NET Foundation and Contributors
 - **Source**: https://github.com/dotnet/runtime
 
+## Steam protocol references
+- **Reference**: https://github.com/SteamDatabase/Protobufs
+- **Use**: Field numbers for authentication, client login, and Cloud messages.
+  The launcher implements a limited wire reader/writer; it does not bundle
+  SteamKit2, generated Steam message classes, or the Steam client.
+
 ## FMOD
 - **License**: Proprietary (FMOD EULA)
 - **Copyright**: (c) Firelight Technologies Pty Ltd

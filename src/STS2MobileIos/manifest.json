@@ -188,6 +188,34 @@
       "kind": "postfix",
       "hookType": "STS2MobileIos.Patches.PerformancePatches",
       "hookMethod": "EnterTreePostfix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.Cards.Holders.NCardHolder",
+      "targetMethod": "OnMousePressed",
+      "kind": "postfix",
+      "hookType": "STS2MobileIos.Patches.CardInspectPatches",
+      "hookMethod": "PressPostfix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.Cards.Holders.NCardHolder",
+      "targetMethod": "OnMouseReleased",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Patches.CardInspectPatches",
+      "hookMethod": "ReleasePrefix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.NGame",
+      "targetMethod": "_Input",
+      "kind": "prefix",
+      "hookType": "STS2MobileIos.Patches.CardInspectPatches",
+      "hookMethod": "GameInputPrefix"
+    },
+    {
+      "targetType": "MegaCrit.Sts2.Core.Nodes.NGame",
+      "targetMethod": "_Ready",
+      "kind": "postfix",
+      "hookType": "STS2MobileIos.Patches.AudioPatches",
+      "hookMethod": "ReadyPostfix"
     }
   ]
 }

@@ -11,7 +11,7 @@ public static class PlatformPatches
     public static bool InitializePlatformPrefix(ref Task<bool> __result)
     {
         PatchHelper.Log("Skipping Steam initialization (mobile)");
-        PatchHelper.Log("Using isolated iOS saves; desktop import and cloud sync are disabled.");
+        PatchHelper.Log("Using isolated iOS saves; automatic cloud sync is disabled.");
         __result = Task.FromResult(true);
         return false;
     }

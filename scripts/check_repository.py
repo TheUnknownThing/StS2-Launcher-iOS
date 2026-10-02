@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 FORBIDDEN_PARTS = {
     ".cache", ".tools", ".godot", "vendor", "upstream", "__pycache__", "bin", "obj", "logs", "android",
+    "cloud-downloads", "save-backups",
 }
 FORBIDDEN_SUFFIXES = {
     ".log", ".jsonl", ".ndjson", ".ips", ".crash", ".save", ".pck", ".dll", ".dylib",

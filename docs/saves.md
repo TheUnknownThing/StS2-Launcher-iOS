@@ -1,7 +1,7 @@
 # Save management
 
-The iOS build creates local saves in its own app sandbox. It does not authenticate
-with Steam, import desktop files, or upload to Steam Cloud. A Steam save created
+The iOS build creates local saves in its own app sandbox. Steam Cloud downloads
+are kept separately and do not replace active saves. A Steam save created
 with mods may reference content that is not present in the vanilla iOS build.
 
 ## Keep progress when updating
@@ -17,7 +17,27 @@ the game is not writing a save during the backup. The app enables file sharing;
 its documents are accessible through Apple device file-sharing tools.
 
 For a development installation, this command copies the local save tree to the
-Mac. Replace the two identifiers with values from your local config:
+Mac using the device and bundle ID in `ios/config.local.json`:
+
+```sh
+python3 scripts/ios/backup.py
+```
+
+Each backup gets a new dated directory beneath `.cache/save-backups/`, with a
+SHA-256 manifest for the copied files. An interrupted or empty copy is not
+published as a completed backup. Existing backup directories are never replaced.
+The command copies `Documents/default`, including profile settings and saves;
+it excludes game content, Steam login credentials, and benchmark recordings.
+Keep the game at the main menu throughout the copy; this is not a transactional
+snapshot of an actively running game.
+
+To choose a different new directory:
+
+```sh
+python3 scripts/ios/backup.py --destination /path/to/new-backup
+```
+
+The equivalent manual command is:
 
 ```sh
 mkdir -p .cache/save-backups
@@ -41,9 +61,10 @@ Steam saves with a test iOS profile.
 
 ## Cloud and mods
 
-Steam Cloud remains a roadmap item. A future implementation needs to distinguish
-vanilla and modded profiles explicitly. See [Steam Cloud design notes](steam-cloud.md)
-for the proposed account, compatibility and conflict workflow.
+The experimental [Steam Cloud browser](steam-cloud.md) labels modded paths and
+downloads files into `Documents/cloud-downloads/`. Those copies are archives,
+not active profiles. Automatic synchronization and profile restoration are not
+enabled. Credentials are stored in the iOS Keychain.
 
 Do not include saves or backups in pull requests or public bug reports. A short
 description of the profile type, game version and reproduction steps is usually

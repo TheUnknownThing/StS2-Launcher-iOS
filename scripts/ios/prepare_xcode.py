@@ -4,6 +4,7 @@
 import json
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import subprocess
 
@@ -48,7 +49,16 @@ def main():
         start = text.index("/* Begin PBXCopyFilesBuildPhase section */")
         position = text.index("files = (", start) + len("files = (")
         text = text[:position] + f"\n{copy_id}," + text[position:]
+    # The native bridge supplies the playback audio session and device-only Keychain storage.
+    text = text.replace('lastKnownFileType = sourcecode.cpp.cpp; path = dummy.cpp;',
+                        'lastKnownFileType = sourcecode.cpp.objcpp; path = dummy.cpp;')
+    if "-Wl,-export_dynamic" not in text:
+        text = re.sub(r'(OTHER_LDFLAGS = ")([^"]*)(";)',
+                      lambda match: match[1] + match[2] + ' -framework AVFoundation -framework Security -Wl,-export_dynamic' + match[3], text)
+    if "-framework CoreImage" not in text:
+        text = text.replace("-Wl,-export_dynamic", "-Wl,-export_dynamic -framework CoreImage")
     project.write_text(text)
+    shutil.copy2(ROOT / "ios/Sts2Native.mm", build / "StS2/Sts2Native.mm")
 
     info_path = build / "StS2/StS2-Info.plist"
     info = plistlib.loads(info_path.read_bytes())
@@ -73,7 +83,9 @@ unsigned int *load_all_fmod_plugins(void *, unsigned int *count) {
     return nullptr;
 }
 '''
-        dummy.write_text(content)
+    if '#include "Sts2Native.mm"' not in content:
+        content += '\n#include "Sts2Native.mm"\n'
+    dummy.write_text(content)
     print("Prepared device-only framework, FMOD registration, and isolated game container")
 
 

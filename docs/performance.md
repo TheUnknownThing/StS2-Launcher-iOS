@@ -4,6 +4,16 @@ See [the measured iPad results](benchmarks/2026-10-02.md): gameplay averaged
 59.50 FPS over 95 seconds, with a 29.04 ms p99 frame interval. Scene transitions
 still produced longer stalls.
 
+## Live display
+
+Tap **iOS > Show FPS** to display frame rate and average frame interval. This
+preference persists across launches. The display updates twice per second and
+does not record files, change the frame cap, or enable the detailed profiler.
+It measures engine process cadence, not actual screen presentation. Background
+time is excluded.
+
+## Capture a benchmark
+
 With the profiled build running on the iPad, keep it foreground and play a normal
 run while this command captures two minutes of data:
 

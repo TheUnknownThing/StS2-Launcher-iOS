@@ -15,6 +15,7 @@ public static class PerformancePatches
 
     public static void EnterTreePostfix(Node __instance)
     {
+        MobileUi.Install(__instance);
         if (_started || !Array.Exists(OS.GetCmdlineUserArgs(), arg => arg == "--sts2-profile"))
             return;
         _started = true;
@@ -63,6 +64,7 @@ public static class PerformancePatches
 
     public static void SetSuspended(bool suspended)
     {
+        MobileUi.SetSuspended(suspended);
         if (!_started)
             return;
         Flush();

@@ -18,7 +18,7 @@ Describe larger design changes before implementing them, especially save sync.
 This repository contains the iOS implementation, tools and documentation.
 Keep commits focused; avoid mixing dependency updates, unrelated cleanup and
 behavior changes in one patch. Upstream attribution is preserved in the license
-notices and Git history.
+notices and dependency documentation.
 
 ## Tests without game files
 
@@ -32,6 +32,7 @@ Frame-accounting tests require .NET 9 but no Godot, game files or iOS device:
 
 ```sh
 dotnet run --project tests/ios/FrameWindowTests.csproj -c Release
+dotnet run --project tests/cloud/CloudTests.csproj -c Release
 ```
 
 If you used bootstrap, substitute `.tools/dotnet/dotnet` for `dotnet`. The static

@@ -54,6 +54,7 @@ public static class AppLifecyclePatches
     // prefix on MegaCrit.Sts2.Core.Nodes.NBackgroundModeHandler.ExitBackgroundMode
     public static bool ExitBackgroundPrefix(object __instance)
     {
+        AudioPatches.Activate();
         try
         {
             var node = (Node)__instance;

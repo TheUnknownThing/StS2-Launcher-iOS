@@ -31,6 +31,8 @@ logs/
 *.key
 *.pem
 *.local.json
+cloud-downloads/
+save-backups/
 
 # IDE
 .DS_Store

@@ -16,10 +16,13 @@ the game; this repository contains porting code and tools, not game files or an 
 | --- | --- |
 | Native game startup and single-player gameplay | Tested on a physical iPad |
 | Touch card input and mobile layouts | Implemented; more screen sizes need testing |
+| Upgraded card previews | Hold a card in a card list for half a second; tested on iPad |
+| Audio | iOS playback session; music and sound confirmed on iPad |
+| Live FPS display | Toggle under the in-game **iOS** menu; no recording required |
 | Local saves and app upgrades | Separate iOS saves; preserved when upgrading the same app |
 | Background/resume | Audio and scene pause/resume hooks implemented |
-| Steam login and game download on the device | Not implemented; prepare content on a Mac |
-| Steam Cloud | Not implemented; [design notes](docs/steam-cloud.md) |
+| Game download on the device | Not implemented; prepare content on a Mac |
+| Steam Cloud | Experimental QR login/browser and separate downloads; [status and limits](docs/steam-cloud.md) |
 | Desktop mods and modded saves | Unsupported |
 | Multiplayer | Not validated; LAN discovery is not implemented |
 | iPhone, simulator and App Store distribution | Not validated / not provided by this workflow |
@@ -59,13 +62,22 @@ validation. Do not assume a newer Steam beta is compatible.
 
 ## Saves
 
-The iOS app uses fresh saves in its own sandbox. It does not import desktop saves,
-load desktop mods or sync to Steam Cloud. A save created with mods may contain
+The iOS app uses fresh saves in its own sandbox. Cloud downloads are separate
+archives; active profiles are not automatically imported or synchronized. A save created with mods may contain
 content unavailable in this build.
 
 Upgrade using the same bundle ID to keep progress. **Uninstalling the app removes
 its local saves and game content.** See [save management](docs/saves.md) for backup
 instructions and compatibility limits.
+
+Back up the iPad to a new dated directory on the Mac with:
+
+```sh
+python3 scripts/ios/backup.py
+```
+
+Return to the main menu before copying. The command uses your existing local
+device configuration and never replaces an earlier backup.
 
 ## Performance reference
 
@@ -94,7 +106,7 @@ are in Git; raw logs, device identifiers and screenshots stay local.
 - [Architecture and dependency versions](docs/architecture.md)
 - [Performance measurement](docs/performance.md)
 - [Contributing and reporting bugs](CONTRIBUTING.md)
-- [Steam Cloud roadmap](docs/steam-cloud.md)
+- [Steam Cloud and sync roadmap](docs/steam-cloud.md)
 
 ## Credits and licensing
 

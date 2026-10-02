@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/STS2MobileIos/Steam/SteamCloudClient.cs" Link="SteamCloudClient.cs" />
+    <Compile Include="../../src/STS2MobileIos/Steam/CloudSavePolicy.cs" Link="CloudSavePolicy.cs" />
+    <Compile Include="../../src/STS2MobileIos/Steam/SteamWire.cs" Link="SteamWire.cs" />
+    <Compile Include="../../src/STS2MobileIos/Steam/SteamCmConnection.cs" Link="SteamCmConnection.cs" />
+  </ItemGroup>
+</Project>
