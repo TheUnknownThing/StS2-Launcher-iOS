@@ -22,7 +22,7 @@ the game; this repository contains porting code and tools, not game files or an 
 | Local saves and app upgrades | Separate iOS saves; preserved when upgrading the same app |
 | Background/resume | Audio and scene pause/resume hooks implemented |
 | Game download on the device | Not implemented; prepare content on a Mac |
-| Steam Cloud | Experimental QR login/browser and separate downloads; [status and limits](docs/steam-cloud.md) |
+| Steam Cloud | QR login/downloads tested on iPad; vanilla profile import experimental; [status and limits](docs/steam-cloud.md) |
 | Desktop mods and modded saves | Unsupported |
 | Multiplayer | Not validated; LAN discovery is not implemented |
 | iPhone, simulator and App Store distribution | Not validated / not provided by this workflow |
@@ -62,8 +62,9 @@ validation. Do not assume a newer Steam beta is compatible.
 
 ## Saves
 
-The iOS app uses fresh saves in its own sandbox. Cloud downloads are separate
-archives; active profiles are not automatically imported or synchronized. A save created with mods may contain
+The iOS app uses saves in its own sandbox. Cloud downloads are separate archives;
+an explicit import can create a vanilla profile in an unused slot after a backup.
+Automatic synchronization and uploads are not implemented. A save created with mods may contain
 content unavailable in this build.
 
 Upgrade using the same bundle ID to keep progress. **Uninstalling the app removes

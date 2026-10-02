@@ -1,5 +1,6 @@
 using Godot;
 using System.Text.Json.Nodes;
+using MegaCrit.Sts2.Core.Saves;
 
 namespace STS2MobileIos.Steam;
 
@@ -12,6 +13,10 @@ internal sealed class SteamCloudPanel
     private readonly ItemList _files;
     private readonly Label _preview;
     private readonly Button _connect, _refresh, _download, _disconnect;
+    private readonly Button _prepareImport, _confirmImport;
+    private readonly CheckButton _includeRun;
+    private CloudProfileCopy _importCopy;
+    private int _importSlot;
     private CancellationTokenSource _operation;
     private List<CloudFile> _inventory = new();
     private bool _busy;
@@ -35,7 +40,7 @@ internal sealed class SteamCloudPanel
         column.AddChild(new Label { Text = "Steam Cloud" });
         _status = new Label { Text = "Connect to browse your Slay the Spire 2 saves.", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         column.AddChild(_status);
-        column.AddChild(new Label { Text = "Downloads are kept separately. Your active iPad saves and Steam Cloud are not overwritten.",
+        column.AddChild(new Label { Text = "Download an archive, or preview a vanilla profile import into an unused iPad slot. Steam Cloud is read-only.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var actions = new HBoxContainer();
         actions.AddThemeConstantOverride("separation", 12);
@@ -52,6 +57,7 @@ internal sealed class SteamCloudPanel
         column.AddChild(_files);
         _files.ItemSelected += index =>
         {
+            ClearImport();
             var file = _inventory[(int)index];
             _preview.Text = file.Name + "\n" + CloudSavePolicy.Classification(file.Name)
                 + $" | {file.Size:N0} bytes | {DateTimeOffset.FromUnixTimeSeconds(file.Timestamp):yyyy-MM-dd HH:mm} UTC";
@@ -60,6 +66,14 @@ internal sealed class SteamCloudPanel
         _preview = new Label { Text = "Select a file to preview it.", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         column.AddChild(_preview);
         _download = Button(column, "Download a separate copy", () => Run(Download));
+        _includeRun = new CheckButton { Text = "Include current run when importing", ButtonPressed = true };
+        column.AddChild(_includeRun);
+        _includeRun.Toggled += _ => { ClearImport(); UpdateButtons(); };
+        var imports = new HBoxContainer();
+        imports.AddThemeConstantOverride("separation", 12);
+        column.AddChild(imports);
+        _prepareImport = Button(imports, "Preview profile import", () => Run(PrepareImport));
+        _confirmImport = Button(imports, "Import into unused slot", () => Run(ConfirmImport));
         UpdateButtons();
         root.TreeExiting += () => { _operation?.Cancel(); _client.Dispose(); };
     }
@@ -139,6 +153,7 @@ internal sealed class SteamCloudPanel
 
     private async Task Refresh(CancellationToken cancellation)
     {
+        ClearImport();
         _status.Text = "Reading Steam Cloud...";
         _inventory = await _client.ListFiles(cancellation);
         _files.Clear();
@@ -150,6 +165,7 @@ internal sealed class SteamCloudPanel
 
     private async Task Download(CancellationToken cancellation)
     {
+        ClearImport();
         var selected = _files.GetSelectedItems();
         if (selected.Length != 1) return;
         var file = _inventory[selected[0]];
@@ -162,6 +178,56 @@ internal sealed class SteamCloudPanel
             + ". Active saves are unchanged.";
     }
 
+    private string AccountDirectory => ProjectSettings.GlobalizePath(UserDataPathProvider.GetAccountScopedBasePath(null));
+
+    private async Task PrepareImport(CancellationToken cancellation)
+    {
+        ClearImport();
+        CloudGameCompatibility.RequireMainMenu();
+        var selected = _files.GetSelectedItems();
+        if (selected.Length != 1) return;
+        string profile = CloudProfileImport.SourceProfile(_inventory[selected[0]].Name);
+        if (profile == null)
+            throw new InvalidOperationException("Select progress.save, prefs.save, or current_run.save from a vanilla profile. Modded files are archive-only.");
+        bool includeRun = _includeRun.ButtonPressed;
+        int slot = CloudProfileImport.FindUnusedSlot(AccountDirectory, SaveManager.Instance.CurrentProfileId);
+        _status.Text = "Downloading and checking the profile. Keep the desktop game closed until import finishes...";
+        var copy = await CloudProfileImport.Prepare(_client, profile, includeRun, cancellation);
+        cancellation.ThrowIfCancellationRequested();
+        string details = CloudGameCompatibility.Validate(copy);
+        _importCopy = copy;
+        _importSlot = slot;
+        _preview.Text = $"{profile} -> iPad Profile {slot}\n{details}\nA local backup is created first. Existing profiles are kept.";
+        _status.Text = "Preview ready. Confirm the import to create the new profile.";
+        _confirmImport.Text = $"Import into Profile {slot}";
+    }
+
+    private async Task ConfirmImport(CancellationToken cancellation)
+    {
+        var copy = _importCopy;
+        int slot = _importSlot;
+        if (copy == null) return;
+        CloudGameCompatibility.RequireMainMenu();
+        _status.Text = "Rechecking Steam Cloud before import...";
+        await CloudProfileImport.Recheck(_client, copy, copy.Data.ContainsKey("current_run.save"), cancellation);
+        cancellation.ThrowIfCancellationRequested();
+        CloudGameCompatibility.Validate(copy);
+        if (SaveManager.Instance.CurrentProfileId == slot)
+            throw new InvalidOperationException("The target profile is now active. Preview the import again.");
+        _status.Text = "Backing up local saves and creating the profile...";
+        var receipt = CloudProfileImport.Commit(AccountDirectory, Path.Combine(OS.GetUserDataDir(), "save-backups"),
+            slot, copy, _client.Login.SteamId);
+        ClearImport();
+        _preview.Text = "Backup: Files > StS2 iOS > save-backups/" + Path.GetFileName(receipt.Snapshot);
+        _status.Text = $"Imported into Profile {slot}. Close this panel, tap your profile at the top left, and choose Profile {slot} to play.";
+    }
+
+    private void ClearImport()
+    {
+        _importCopy = null;
+        if (_confirmImport != null) _confirmImport.Text = "Import into unused slot";
+    }
+
     private void Disconnect()
     {
         if (_busy) return;
@@ -169,6 +235,7 @@ internal sealed class SteamCloudPanel
         {
             NativeBridge.DeleteCredential();
             _client.ForgetLogin();
+            ClearImport();
             _inventory.Clear();
             _files.Clear();
             _preview.Text = "Select a file to preview it.";
@@ -181,6 +248,7 @@ internal sealed class SteamCloudPanel
     private void Close()
     {
         _operation?.Cancel();
+        ClearImport();
         _panel.Hide();
     }
 
@@ -191,5 +259,8 @@ internal sealed class SteamCloudPanel
         _refresh.Disabled = _busy || !connected;
         _disconnect.Disabled = _busy || !connected;
         _download.Disabled = _busy || !connected || _files.GetSelectedItems().Length != 1;
+        _prepareImport.Disabled = _busy || !connected || _files.GetSelectedItems().Length != 1;
+        _confirmImport.Disabled = _busy || !connected || _importCopy == null;
+        _includeRun.Disabled = _busy;
     }
 }

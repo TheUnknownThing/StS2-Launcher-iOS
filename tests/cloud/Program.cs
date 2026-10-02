@@ -129,6 +129,45 @@ foreach (var malformed in new[] { new byte[] { 0 }, new byte[] { 10, 255 }, new 
 }
 Console.WriteLine("Steam protocol field tests passed.");
 
+Check(CloudProfileImport.SourceProfile("profile2/saves/progress.save") == "profile2", "Wrong source profile");
+foreach (string path in new[] { "modded/profile1/saves/progress.save", "profile1/saves/history/test.run", "profile1/../profile2/saves/progress.save", "profile4/saves/progress.save" })
+    Check(CloudProfileImport.SourceProfile(path) == null, "Non-vanilla source accepted");
+string importRoot = Path.Combine(Path.GetTempPath(), "sts2-import-test-" + Guid.NewGuid());
+try
+{
+    string account = Path.Combine(importRoot, "account"), backups = Path.Combine(importRoot, "backups");
+    Directory.CreateDirectory(Path.Combine(account, "profile1", "saves"));
+    File.WriteAllBytes(Path.Combine(account, "profile1", "saves", "progress.save"), data);
+    var file = new CloudFile("profile1/saves/progress.save", data.Length, 123, checksum);
+    var copy = new CloudProfileCopy("profile1", new[] { file }, new() { ["progress.save"] = data });
+    Check(CloudProfileImport.FindUnusedSlot(account, 1) == 2, "Occupied slot selected");
+    var receipt = CloudProfileImport.Commit(account, backups, 2, copy, "test-account");
+    Check(File.ReadAllBytes(Path.Combine(account, "profile2", "saves", "progress.save")).SequenceEqual(data), "Import changed bytes");
+    Check(File.ReadAllBytes(Path.Combine(receipt.Snapshot, "local", "profile1", "saves", "progress.save")).SequenceEqual(data), "Backup missing original save");
+    Check(File.Exists(Path.Combine(receipt.Snapshot, "incoming", "progress.save")), "Incoming snapshot missing");
+    Check(File.Exists(Path.Combine(receipt.Snapshot, "manifest.json")), "Backup manifest missing");
+    try { CloudProfileImport.Commit(account, backups, 2, copy, "test-account"); throw new Exception("Occupied slot overwritten"); }
+    catch (InvalidOperationException) { }
+    Check(CloudProfileImport.FindUnusedSlot(account, 1) == 3, "Imported slot selected again");
+    string linked = Path.Combine(account, "linked");
+    Directory.CreateSymbolicLink(linked, backups);
+    try { CloudProfileImport.Commit(account, backups, 3, copy, "test-account"); throw new Exception("Linked backup accepted"); }
+    catch (InvalidOperationException) { }
+    Directory.Delete(linked);
+    Check(!Directory.Exists(Path.Combine(account, "profile3")), "Failed backup published a profile");
+    Check(!Directory.EnumerateDirectories(backups, ".pending-*").Any(), "Failed backup leaked a partial snapshot");
+
+    client.CloudTransport = (_, _, _) => Task.FromResult<JsonNode>(new JsonObject {
+        ["total_files"] = 1, ["files"] = new JsonArray(new JsonObject {
+            ["filename"] = file.Name, ["file_size"] = file.Size, ["timestamp"] = file.Timestamp + 1, ["file_sha"] = checksum,
+        }),
+    });
+    try { await CloudProfileImport.Recheck(client, copy, false, CancellationToken.None); throw new Exception("Changed profile imported"); }
+    catch (InvalidOperationException error) { Check(error.Message.Contains("changed"), "Wrong profile conflict error"); }
+}
+finally { if (Directory.Exists(importRoot)) Directory.Delete(importRoot, true); }
+Console.WriteLine("Profile import isolation, backup, and conflict tests passed.");
+
 sealed class FakeHandler(Queue<HttpResponseMessage> responses) : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)

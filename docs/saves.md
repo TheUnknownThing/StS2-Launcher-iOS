@@ -63,8 +63,12 @@ Steam saves with a test iOS profile.
 
 The experimental [Steam Cloud browser](steam-cloud.md) labels modded paths and
 downloads files into `Documents/cloud-downloads/`. Those copies are archives,
-not active profiles. Automatic synchronization and profile restoration are not
-enabled. Credentials are stored in the iOS Keychain.
+not active profiles. **Preview profile import** can prepare compatible vanilla
+progress and an optional current run for an unused iPad profile slot. Confirmation
+creates a local backup under `Documents/save-backups/` before publishing the new
+profile. Select it using the game's profile picker. See the Cloud guide for
+compatibility checks and restrictions. Automatic synchronization and uploads are
+not enabled. Credentials are stored in the iOS Keychain.
 
 Do not include saves or backups in pull requests or public bug reports. A short
 description of the profile type, game version and reproduction steps is usually
