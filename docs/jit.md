@@ -51,7 +51,15 @@ The process keeps debugger-enabled executable-memory permission for its lifetime
 The command restarts an existing experimental process, so save and return to the
 menu before using it during play.
 
-Opening StS2 JIT normally presents an enable-JIT screen. A compatible external
+Opening StS2 JIT creates its shared Files folder before starting Godot. On a
+fresh install, the setup screen asks for the prepared `StS2.pck` in **Files >
+On My iPad > StS2 JIT**. Copy the contents of your prepared Documents directory
+there, without adding another Documents subfolder. The app waits until the pack
+matches the size recorded at build time, so an incomplete copy cannot start the
+engine. Use the content prepared for that build; this size check does not verify
+the file's integrity.
+
+Once content is present, the app presents an enable-JIT screen. A compatible external
 JIT tool can attach to that running app; the game starts automatically once the
 process is debugged. For an already running process, the Mac helper accepts
 `launch --pid PID`. AltStore/SideStore-related JIT activation workflows depend

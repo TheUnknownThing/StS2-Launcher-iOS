@@ -145,6 +145,9 @@ def runtime():
 def game():
     cfg = config()
     libraries = native_libraries()
+    content = CACHE / "StS2.pck"
+    if not content.is_file():
+        raise SystemExit("Prepare content first with scripts/ios/build.py content")
     if not (ROOT / "ios/build/StS2.xcodeproj/project.pbxproj").is_file():
         raise SystemExit("Prepare the Godot host first with scripts/ios/build.py build")
     steam = Path(cfg.get("game", str(Path.home() / "Library/Application Support/Steam/steamapps/common/Slay the Spire 2/SlayTheSpire2.app"))).expanduser()
@@ -169,6 +172,9 @@ def game():
     info = plistlib.loads(info_path.read_bytes())
     info["CFBundleIdentifier"] = cfg["jit_bundle_id"]
     info["CFBundleDisplayName"] = "StS2 JIT"
+    info["STS2ContentSize"] = content.stat().st_size
+    info["UIFileSharingEnabled"] = True
+    info["LSSupportsOpeningDocumentsInPlace"] = True
     info["godot_cmdline"] = ["--main-pack", "user://StS2.pck"]
     info_path.write_bytes(plistlib.dumps(info))
     framework = GAME_ROOT / "StS2/dylibs/sts2.framework"
