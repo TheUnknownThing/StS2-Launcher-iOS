@@ -63,8 +63,9 @@ Steam saves with a test iOS profile.
 
 The experimental [Steam Cloud browser](steam-cloud.md) labels modded paths and
 downloads files into `Documents/cloud-downloads/`. Those copies are archives,
-not active profiles. **Preview profile import** can prepare compatible vanilla
-progress and an optional current run for an unused iPad profile slot. Confirmation
+not active profiles. **Preview profile import** can prepare compatible vanilla or
+modded progress and an optional current run for an unused iPad profile slot in
+the matching save area. Confirmation
 creates a local backup under `Documents/save-backups/` before publishing the new
 profile. Select it using the game's profile picker. See the Cloud guide for
 compatibility checks and restrictions. Automatic synchronization and uploads are

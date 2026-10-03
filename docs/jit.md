@@ -91,8 +91,11 @@ the app is closed. If a mod prevents startup, remove its folder and relaunch.
 Mods execute with the app's privileges.
 
 The game's normal modded save area is used inside this separate app sandbox.
-Preserve the same mod versions when resuming a run. Cloud downloads remain
-archives; this experiment does not add modded Cloud import or upload support.
+Preserve the same mod versions when resuming a run. The [Steam Cloud panel](steam-cloud.md)
+can import compatible modded profiles into unused slots in that area while mods
+are active. Preview validates against the loaded game and mod serializers/models,
+and confirmation backs up local saves before copying the original save bytes.
+Separate downloads remain archives; Cloud uploads are not implemented.
 
 ## Device results
 

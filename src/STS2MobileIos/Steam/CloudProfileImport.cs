@@ -4,22 +4,32 @@ using System.Text.RegularExpressions;
 
 namespace STS2MobileIos.Steam;
 
-public sealed record CloudProfileCopy(string Source, IReadOnlyList<CloudFile> Files, Dictionary<string, byte[]> Data);
+public sealed record CloudProfileCopy(string Source, IReadOnlyList<CloudFile> Files, Dictionary<string, byte[]> Data)
+{
+    public bool IsModded => Source.StartsWith("modded/", StringComparison.Ordinal);
+}
 public sealed record CloudImportReceipt(int Slot, string Snapshot);
 
 public static class CloudProfileImport
 {
     public static string SourceProfile(string name)
     {
-        var match = Regex.Match(name ?? "", @"^(profile[1-3])/saves/(progress|prefs|current_run)\.save$");
+        var match = Regex.Match(name ?? "", @"\A((?:modded/)?profile[1-3])/saves/(progress|prefs|current_run)\.save\z");
         return match.Success ? match.Groups[1].Value : null;
     }
+
+    public static string ModeMismatch(bool sourceModded, bool runningModded) => sourceModded == runningModded ? null
+        : sourceModded ? "Enable the profile's mods and restart before importing a modded Cloud profile."
+        : "Disable mods and restart before importing a vanilla Cloud profile.";
+
+    public static string ProfileDirectory(string accountDirectory, int slot, bool modded) =>
+        Path.Combine(modded ? Path.Combine(accountDirectory, "modded") : accountDirectory, "profile" + slot);
 
     public static async Task<CloudProfileCopy> Prepare(SteamCloudClient client, string source, bool includeRun,
         CancellationToken cancellation)
     {
         if (SourceProfile(source + "/saves/progress.save") != source)
-            throw new InvalidOperationException("Choose a vanilla profile save. Modded profiles can only be archived.");
+            throw new InvalidOperationException("Choose progress.save, prefs.save, or current_run.save from a profile.");
         var inventory = await client.ListFiles(cancellation);
         var files = SelectFiles(inventory, source, includeRun);
         var data = new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -53,11 +63,11 @@ public static class CloudProfileImport
                 throw new InvalidOperationException("Cloud profile changed. Preview the import again.");
     }
 
-    public static int FindUnusedSlot(string accountDirectory, int activeSlot)
+    public static int FindUnusedSlot(string accountDirectory, int activeSlot, bool modded = false)
     {
         for (int slot = 1; slot <= 3; slot++)
         {
-            string path = Path.Combine(accountDirectory, "profile" + slot);
+            string path = ProfileDirectory(accountDirectory, slot, modded);
             if (slot != activeSlot && IsEmptySlot(path)) return slot;
         }
         throw new InvalidOperationException("All three iPad profile slots are active or contain saved files. Existing profiles will not be replaced.");
@@ -92,7 +102,7 @@ public static class CloudProfileImport
             || copy.Data.Any(pair => pair.Key is not ("progress.save" or "prefs.save" or "current_run.save")
                 || pair.Value.Length > SteamCloudClient.MaximumSaveBytes))
             throw new InvalidOperationException("Invalid profile import.");
-        string destination = Path.Combine(accountDirectory, "profile" + slot);
+        string destination = ProfileDirectory(accountDirectory, slot, copy.IsModded);
         if (!IsEmptySlot(destination))
             throw new InvalidOperationException("The selected iPad slot is no longer unused. Preview again.");
         Directory.CreateDirectory(snapshotDirectory);
@@ -104,7 +114,8 @@ public static class CloudProfileImport
         {
             Directory.CreateDirectory(pending);
             var manifest = new JsonObject { ["source_profile"] = copy.Source, ["steam_id"] = steamId,
-                ["destination_slot"] = slot, ["created_utc"] = DateTimeOffset.UtcNow.ToString("O") };
+                ["destination_slot"] = slot, ["destination_profile"] = (copy.IsModded ? "modded/" : "") + "profile" + slot,
+                ["created_utc"] = DateTimeOffset.UtcNow.ToString("O") };
             var local = new JsonArray();
             long total = 0;
             int count = 0;
@@ -124,6 +135,7 @@ public static class CloudProfileImport
             // The game can pre-create empty profile/saves/history directories.
             // Non-recursive deletion fails if a file appears before publication.
             if (Directory.Exists(destination)) RemoveEmptyDirectories(destination);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             Directory.Move(staging, destination);
             return new(slot, snapshot);
         }

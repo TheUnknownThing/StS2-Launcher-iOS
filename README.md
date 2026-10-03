@@ -30,7 +30,7 @@ the game; this repository contains porting code and tools, not game files or an 
 | Steam Cloud | QR login, downloads, and vanilla profile import confirmed on iPad; [status and limits](docs/steam-cloud.md) |
 | Resource mods | Experimental cosmetic PCK loader and menu; static checks only; [compatibility](docs/mods.md) |
 | C# mods | NativeAOT requires individual ports; the optional [JIT build](docs/jit.md) loads managed DLL mods |
-| Modded Cloud imports | Not supported; downloaded files remain archives |
+| Modded Cloud imports | Profile import into separate modded slots with loaded-mod validation; device validation pending |
 | LAN multiplayer | Host/join, host-save resume, and Bonjour discovery implemented; static checks only; [guide](docs/multiplayer.md) |
 | iPhone, simulator and App Store distribution | Not validated / not provided by this workflow |
 

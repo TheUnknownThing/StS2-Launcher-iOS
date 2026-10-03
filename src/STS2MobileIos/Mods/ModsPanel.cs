@@ -20,7 +20,7 @@ internal sealed class ModsPanel
             ContentMarginLeft = 24, ContentMarginRight = 24, ContentMarginTop = 24, ContentMarginBottom = 24 });
         var column = new VBoxContainer(); column.AddThemeConstantOverride("separation", 16); _panel.AddChild(column);
         column.AddChild(new Label { Text = "Resource mods (experimental)" });
-        column.AddChild(new Label { Text = "In Files, copy each mod to StS2/mods/<id>/<id>.json and <id>.pck.\nOnly enable mods you trust. Restart the app to apply changes.\nFirst activation copies vanilla profiles into the separate modded save area.\nC# DLL mods need individual iOS ports. Modded Cloud saves remain archive-only.",
+        column.AddChild(new Label { Text = "In Files, copy each mod to StS2/mods/<id>/<id>.json and <id>.pck.\nOnly enable mods you trust. Restart the app to apply changes.\nFirst activation copies vanilla profiles into the separate modded save area.\nC# DLL mods need the JIT build or individual iOS ports. Cloud import checks compatibility with the loaded mods.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var actions = new HBoxContainer(); column.AddChild(actions);
         var refresh = new Button { Text = "Refresh", CustomMinimumSize = new Vector2(130, 48) };

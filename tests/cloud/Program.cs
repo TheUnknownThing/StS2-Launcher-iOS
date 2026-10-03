@@ -31,6 +31,7 @@ if (args.Contains("--cm-probe"))
 foreach (string unsafePath in new[] { "../progress.save", "/absolute", "a/../b", "a\\b", "user://save", "a//b", "a\nb" })
     Check(!CloudSavePolicy.SafePath(unsafePath), "Unsafe cloud path accepted");
 Check(CloudSavePolicy.Classification("modded/profile1/saves/progress.save").StartsWith("Modded"), "Modded profile misclassified");
+Check(CloudSavePolicy.Classification("modded/profile1/saves/progress.save") == "Modded candidate", "Modded save labeled archive-only");
 Check(CloudSavePolicy.Classification("profile1/saves/progress.save") == "Vanilla candidate", "Vanilla profile misclassified");
 
 var data = Encoding.UTF8.GetBytes("{\"schema_version\":7}");
@@ -130,8 +131,16 @@ foreach (var malformed in new[] { new byte[] { 0 }, new byte[] { 10, 255 }, new 
 Console.WriteLine("Steam protocol field tests passed.");
 
 Check(CloudProfileImport.SourceProfile("profile2/saves/progress.save") == "profile2", "Wrong source profile");
-foreach (string path in new[] { "modded/profile1/saves/progress.save", "profile1/saves/history/test.run", "profile1/../profile2/saves/progress.save", "profile4/saves/progress.save" })
-    Check(CloudProfileImport.SourceProfile(path) == null, "Non-vanilla source accepted");
+Check(CloudProfileImport.SourceProfile("modded/profile1/saves/progress.save") == "modded/profile1", "Modded source prefix lost");
+Check(CloudProfileImport.SourceProfile("modded/profile3/saves/current_run.save") == "modded/profile3", "Modded run not importable");
+foreach (string path in new[] { "profile1/saves/history/test.run", "profile1/../profile2/saves/progress.save", "profile4/saves/progress.save",
+    "modded/profile1/saves/progress.save\n", "modded/../profile1/saves/progress.save", "modded/modded/profile1/saves/progress.save",
+    "modded/profile4/saves/progress.save", "modded/profile1/saves/current_run_mp.save" })
+    Check(CloudProfileImport.SourceProfile(path) == null, "Unsupported source accepted");
+Check(CloudProfileImport.ModeMismatch(true, true) == null, "Modded import blocked with mods enabled");
+Check(CloudProfileImport.ModeMismatch(false, false) == null, "Vanilla import blocked without mods");
+Check(CloudProfileImport.ModeMismatch(true, false) != null, "Modded import allowed without mods");
+Check(CloudProfileImport.ModeMismatch(false, true) != null, "Vanilla import allowed into a modded session");
 string importRoot = Path.Combine(Path.GetTempPath(), "sts2-import-test-" + Guid.NewGuid());
 try
 {
@@ -181,6 +190,58 @@ try
     });
     try { await CloudProfileImport.Recheck(client, copy, false, CancellationToken.None); throw new Exception("Changed profile imported"); }
     catch (InvalidOperationException error) { Check(error.Message.Contains("changed"), "Wrong profile conflict error"); }
+
+    // The same slot number belongs to separate vanilla and modded profile trees.
+    var modData = new Dictionary<string, byte[]> {
+        ["progress.save"] = Encoding.UTF8.GetBytes("{\"schema_version\":7,\"mod_progress\":{\"unlocks\":[\"WATCHER\"]}}"),
+        ["prefs.save"] = Encoding.UTF8.GetBytes("{\"schema_version\":1,\"mod_settings\":{\"value\":3}}"),
+        ["current_run.save"] = Encoding.UTF8.GetBytes("{\"schema_version\":1,\"players\":[{\"mod_data\":{\"stance\":\"WRATH\"}}]}"),
+    };
+    var modFiles = modData.Select(pair => new CloudFile("modded/profile3/saves/" + pair.Key,
+        pair.Value.Length, 1000, Convert.ToHexString(SHA1.HashData(pair.Value))))
+        .OrderBy(file => file.Name).ToList();
+    var requested = new List<string>();
+    client.CloudTransport = (method, request, _) => {
+        if (method.Contains("EnumerateUserFiles"))
+            return Task.FromResult<JsonNode>(new JsonObject {
+                ["total_files"] = modFiles.Count + 1,
+                ["files"] = new JsonArray(modFiles.Append(file).Select(item => (JsonNode)new JsonObject {
+                    ["filename"] = item.Name, ["file_size"] = item.Size, ["timestamp"] = item.Timestamp, ["file_sha"] = item.Sha1,
+                }).ToArray()),
+            });
+        string name = request["filename"]!.GetValue<string>();
+        requested.Add(name);
+        var item = modFiles.Single(item => item.Name == name);
+        responses.Enqueue(new(HttpStatusCode.OK) { Content = new ByteArrayContent(modData[Path.GetFileName(name)]) });
+        return Task.FromResult<JsonNode>(new JsonObject {
+            ["appid"] = SteamCloudClient.AppId, ["time_stamp"] = item.Timestamp,
+            ["url_host"] = "test.steamusercontent.com", ["url_path"] = "/save", ["sha_file"] = Convert.ToBase64String(Convert.FromHexString(item.Sha1)),
+        });
+    };
+    var preparedModded = await CloudProfileImport.Prepare(client, "modded/profile3", true, CancellationToken.None);
+    Check(preparedModded.IsModded && preparedModded.Files.SequenceEqual(modFiles), "Wrong cloud profile downloaded");
+    Check(requested.Count == 3 && requested.All(name => name.StartsWith("modded/profile3/")), "Import mixed vanilla and modded cloud files");
+    Check(CloudProfileImport.FindUnusedSlot(account, 1, true) == 2, "Vanilla saves blocked unused modded slot");
+    string vanillaBefore = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(account, "profile2", "saves", "progress.save"))));
+    var modReceipt = CloudProfileImport.Commit(account, backups, 2, preparedModded, "test-account");
+    foreach (var pair in modData)
+        Check(File.ReadAllBytes(Path.Combine(account, "modded", "profile2", "saves", pair.Key)).SequenceEqual(pair.Value), "Import changed mod-specific save data");
+    Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(account, "profile2", "saves", "progress.save")))) == vanillaBefore, "Modded import overwrote vanilla save");
+    Check(File.ReadAllBytes(Path.Combine(modReceipt.Snapshot, "local", "profile2", "saves", "progress.save")).SequenceEqual(data), "Modded import did not back up vanilla tree");
+    var manifest = JsonNode.Parse(File.ReadAllText(Path.Combine(modReceipt.Snapshot, "manifest.json")))!;
+    Check(manifest["destination_profile"]!.GetValue<string>() == "modded/profile2", "Snapshot lost destination save mode");
+    try { CloudProfileImport.Commit(account, backups, 2, preparedModded, "test-account"); throw new Exception("Existing modded save overwritten"); }
+    catch (InvalidOperationException) { }
+    Check(CloudProfileImport.FindUnusedSlot(account, 1, true) == 3, "Occupied modded slot selected");
+    var progressOnly = await CloudProfileImport.Prepare(client, "modded/profile3", false, CancellationToken.None);
+    Check(!progressOnly.Data.ContainsKey("current_run.save") && progressOnly.Data.Count == 2, "Progress-only modded import included a run");
+    var thirdReceipt = CloudProfileImport.Commit(account, backups, 3, progressOnly, "test-account");
+    Check(File.ReadAllBytes(Path.Combine(thirdReceipt.Snapshot, "local", "modded", "profile2", "saves", "current_run.save")).SequenceEqual(modData["current_run.save"]), "Existing modded run missing from backup");
+    Check(File.ReadAllText(Path.Combine(third, "saves", "progress.save.backup")) == "retained backup", "Modded slot collided with vanilla backup");
+    Check(!File.Exists(Path.Combine(account, "modded", "profile3", "saves", "current_run.save")), "Progress-only import published a run");
+    modFiles.RemoveAll(item => item.Name.EndsWith("/prefs.save", StringComparison.Ordinal));
+    try { await CloudProfileImport.Recheck(client, preparedModded, true, CancellationToken.None); throw new Exception("Changed modded profile accepted"); }
+    catch (InvalidOperationException error) { Check(error.Message.Contains("changed"), "Wrong modded profile conflict error"); }
 }
 finally { if (Directory.Exists(importRoot)) Directory.Delete(importRoot, true); }
 Console.WriteLine("Profile import isolation, backup, and conflict tests passed.");
@@ -200,7 +261,7 @@ var vanillaSaves = CloudBrowser.Filter(browserFiles, false, CloudFileKind.Saves)
 Check(vanillaSaves.Count == 3 && vanillaSaves[0].File.Name == "profile1/saves/progress.save", "Save list did not prioritize progress");
 Check(vanillaSaves.All(entry => entry.ImportProfile != null), "Archive-only file appeared as importable");
 var moddedSaves = CloudBrowser.Filter(browserFiles, true, CloudFileKind.Saves);
-Check(moddedSaves.Count == 1 && moddedSaves[0].ImportProfile == null, "Modded save offered for import");
+Check(moddedSaves.Count == 1 && moddedSaves[0].ImportProfile == "modded/profile1", "Modded save not offered for import");
 var history = CloudBrowser.Filter(browserFiles, false, CloudFileKind.History);
 Check(history.Count == 2 && history[0].File.Name.EndsWith("recent.run") && history.All(entry => entry.ImportProfile == null), "History mixed with saves or ordered incorrectly");
 Check(CloudBrowser.Filter(browserFiles, true, CloudFileKind.History).Count == 1, "Modded history mixed with vanilla");

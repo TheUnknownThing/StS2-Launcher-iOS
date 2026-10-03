@@ -188,7 +188,7 @@ internal sealed class SteamCloudPanel
         }
         _browseHint.Text = _category switch {
             CloudFileKind.Saves when !_showModded => "Select a save to import its profile. Compatibility is checked in the preview; Steam Cloud stays unchanged.",
-            CloudFileKind.Saves => "Modded saves can be downloaded as backups. Importing them into the vanilla iPad game is not supported yet.",
+            CloudFileKind.Saves => "Import into a separate modded profile. Enable the same mods and versions as on desktop before previewing.",
             CloudFileKind.History => "Completed run records, newest first. These .run files are archives and cannot resume a run or import a profile.",
             _ => "Account files, settings, and other files. Download these as backups; they are not supported by profile import.",
         };
@@ -229,6 +229,12 @@ internal sealed class SteamCloudPanel
 
     private void UpdateDestinationHint()
     {
+        string mismatch = CloudProfileImport.ModeMismatch(_showModded, UserDataPathProvider.IsRunningModded);
+        if (mismatch != null)
+        {
+            _destinationHint.Text = mismatch;
+            return;
+        }
         if (!SaveManager.Instance.IsProfileInitialized)
         {
             _destinationHint.Text = "Return to the main menu to choose an import destination.";
@@ -239,12 +245,12 @@ internal sealed class SteamCloudPanel
         for (int slot = 1; slot <= 3; slot++)
         {
             bool active = SaveManager.Instance.CurrentProfileId == slot;
-            bool empty = !active && CloudProfileImport.IsEmptySlot(Path.Combine(AccountDirectory, "profile" + slot));
+            bool empty = !active && CloudProfileImport.IsEmptySlot(CloudProfileImport.ProfileDirectory(AccountDirectory, slot, _showModded));
             if (empty && target == 0) target = slot;
             labels.Add($"Profile {slot}: {(active ? "active" : empty ? "empty" : "saved files")}");
         }
         _destinationHint.Text = string.Join("  |  ", labels) + (target != 0
-            ? $"\nImport destination: iPad Profile {target}." : "\nAll slots contain saves or are active; no profile will be overwritten.");
+            ? $"\nImport destination: iPad {(_showModded ? "modded " : "")}Profile {target}." : "\nAll slots contain saves or are active; no profile will be overwritten.");
     }
 
     public void Show()
@@ -341,22 +347,22 @@ internal sealed class SteamCloudPanel
     private async Task PrepareImport(CancellationToken cancellation)
     {
         ClearImport();
-        CloudGameCompatibility.RequireMainMenu();
         UpdateDestinationHint();
         var selected = SelectedEntry();
         if (selected == null) return;
         string profile = selected.ImportProfile;
         if (profile == null)
-            throw new InvalidOperationException("Select progress.save, prefs.save, or current_run.save from a vanilla profile. Modded files are archive-only.");
+            throw new InvalidOperationException("Select progress.save, prefs.save, or current_run.save from a profile.");
+        CloudGameCompatibility.RequireMainMenu(selected.IsModded);
         bool includeRun = _includeRun.ButtonPressed;
-        int slot = CloudProfileImport.FindUnusedSlot(AccountDirectory, SaveManager.Instance.CurrentProfileId);
+        int slot = CloudProfileImport.FindUnusedSlot(AccountDirectory, SaveManager.Instance.CurrentProfileId, selected.IsModded);
         _status.Text = "Downloading and checking the profile. Keep the desktop game closed until import finishes...";
         var copy = await CloudProfileImport.Prepare(_client, profile, includeRun, cancellation);
         cancellation.ThrowIfCancellationRequested();
         string details = CloudGameCompatibility.Validate(copy);
         _importCopy = copy;
         _importSlot = slot;
-        _preview.Text = $"{profile} -> iPad Profile {slot}\n{details}\nA local backup is created first. Existing profiles are kept.";
+        _preview.Text = $"{profile} -> iPad {(copy.IsModded ? "modded " : "")}Profile {slot}\n{details}\nA local backup is created first. Existing profiles are kept.";
         _status.Text = "Preview ready. Confirm the import to create the new profile.";
         _confirmImport.Text = $"Import into Profile {slot}";
     }
@@ -366,7 +372,7 @@ internal sealed class SteamCloudPanel
         var copy = _importCopy;
         int slot = _importSlot;
         if (copy == null) return;
-        CloudGameCompatibility.RequireMainMenu();
+        CloudGameCompatibility.RequireMainMenu(copy.IsModded);
         _status.Text = "Rechecking Steam Cloud before import...";
         await CloudProfileImport.Recheck(_client, copy, copy.Data.ContainsKey("current_run.save"), cancellation);
         cancellation.ThrowIfCancellationRequested();
@@ -379,7 +385,7 @@ internal sealed class SteamCloudPanel
         ClearImport();
         UpdateDestinationHint();
         _preview.Text = "Backup: Files > StS2 iOS > save-backups/" + Path.GetFileName(receipt.Snapshot);
-        _status.Text = $"Imported into Profile {slot}. Close this panel, tap your profile at the top left, and choose Profile {slot} to play.";
+        _status.Text = $"Imported into {(copy.IsModded ? "modded " : "")}Profile {slot}. Close this panel, tap your profile at the top left, and choose Profile {slot} to play.";
     }
 
     private void ClearImport()
@@ -420,13 +426,14 @@ internal sealed class SteamCloudPanel
     {
         bool connected = _client.Login != null;
         var selected = SelectedEntry();
-        bool canImport = HasProgress(selected);
+        bool canImport = HasProgress(selected)
+            && CloudProfileImport.ModeMismatch(selected.IsModded, UserDataPathProvider.IsRunningModded) == null;
         _connect.Disabled = _busy || connected;
         _refresh.Disabled = _busy || !connected;
         _disconnect.Disabled = _busy || !connected;
         _download.Visible = selected != null;
         _download.Disabled = _busy || !connected || selected == null;
-        _importActions.Visible = !_showModded && _category == CloudFileKind.Saves && selected != null;
+        _importActions.Visible = _category == CloudFileKind.Saves && selected != null;
         _prepareImport.Disabled = _busy || !connected || !canImport;
         _prepareImport.Text = selected?.Profile is int profile ? $"Preview Profile {profile} import" : "Preview profile import";
         _confirmImport.Visible = _importCopy != null;

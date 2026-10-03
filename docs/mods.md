@@ -62,8 +62,10 @@ to vanilla profiles; it does not merge progress back from modded profiles.
 
 Take a [save backup](saves.md) before changing mod sets. Loading a resource pack
 does not supply missing Watcher cards, characters, or other C# models. Modded
-Steam Cloud files remain archive-only. Vanilla Cloud import requires resource
-mods to be disabled and the app restarted.
+Steam Cloud profile import validates against the currently loaded content and
+writes to an unused modded slot. Saves requiring C# mods need the JIT build with
+matching mods installed. Vanilla Cloud import requires mods to be disabled and
+the app restarted.
 
 ## Examples inspected locally
 

@@ -10,10 +10,10 @@ namespace STS2MobileIos.Steam;
 
 internal static class CloudGameCompatibility
 {
-    public static void RequireMainMenu()
+    public static void RequireMainMenu(bool sourceModded)
     {
-        if (UserDataPathProvider.IsRunningModded)
-            throw new InvalidOperationException("Disable resource mods and restart before importing a vanilla Cloud profile.");
+        string mismatch = CloudProfileImport.ModeMismatch(sourceModded, UserDataPathProvider.IsRunningModded);
+        if (mismatch != null) throw new InvalidOperationException(mismatch);
         if (NGame.Instance?.MainMenu == null || NRun.Instance != null
             || RunManager.Instance.IsInProgress || Lan.LanSession.Busy || !SaveManager.Instance.IsProfileInitialized
             || SaveManager.Instance.CurrentRunSaveTask is { IsCompleted: false })
@@ -22,7 +22,7 @@ internal static class CloudGameCompatibility
 
     public static string Validate(CloudProfileCopy copy)
     {
-        RequireMainMenu();
+        RequireMainMenu(copy.IsModded);
         var progress = Read<SerializableProgress>(copy.Data["progress.save"]);
         var context = new DeserializationContext();
         try { _ = ProgressState.FromSerializable(progress, context); }
@@ -52,6 +52,8 @@ internal static class CloudGameCompatibility
             details += $"\nCurrent run: {run.Players[0].CharacterId.Entry}, act {run.CurrentActIndex + 1}, ascension {run.Ascension}";
         }
         else details += "\nProgress and preferences only; no current run or run history.";
+        if (copy.IsModded)
+            details += "\nModded profile: checked against the currently loaded mods. Keep the same mod versions as on desktop.";
         return details + ProgressImportWarnings.Summary(context.Errors.Count);
     }
 
@@ -68,7 +70,7 @@ internal static class CloudGameCompatibility
             var typeInfo = JsonSerializationUtility.GetTypeInfo<T>();
             var known = typeInfo.Properties.Select(property => property.Name).ToHashSet(StringComparer.Ordinal);
             if (root.EnumerateObject().Any(property => !known.Contains(property.Name)))
-                throw new InvalidOperationException("The cloud save has fields the installed game does not recognize. It can only be archived.");
+                throw new InvalidOperationException("The cloud save has fields the installed game and loaded mods do not recognize. Install matching game/mod versions before importing.");
             return JsonSerializer.Deserialize(bytes, typeInfo)
                 ?? throw new InvalidOperationException("The cloud save is empty.");
         }
