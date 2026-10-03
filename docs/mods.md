@@ -1,12 +1,17 @@
 # Mods on iOS
 
-The first mod-loading path supports **cosmetic resource packs**. C# DLL mods
+There are two runtime paths. The default **NativeAOT** build supports cosmetic
+resource packs as described here. The experimental [JIT build](jit.md) supports
+managed DLL loading and runtime Harmony patches; it has been tested with BaseLib,
+QuickRestart and Watcher on iPad.
+
+In the NativeAOT build, C# DLL mods
 require individual ports because the iOS build uses .NET NativeAOT: dropping a
 desktop assembly into the app cannot supply new compiled code, and desktop
 Harmony patches commonly generate code at runtime.
 
-The resource loader and menu have static/offline checks. No modded gameplay has
-been tested on iPad with this implementation.
+The NativeAOT resource loader and menu have static/offline checks. Its modded
+gameplay remains untested; the device results in the JIT guide use a separate loader.
 
 ## Install a resource mod
 
@@ -62,8 +67,9 @@ mods to be disabled and the app restarted.
 
 ## Examples inspected locally
 
-These installed versions were inspected as compatibility examples, without
-executing their code. Their binaries, resources, user configuration, and save
+These installed versions were initially inspected without executing their code.
+The table describes the NativeAOT path; see the [JIT results](jit.md#device-results)
+for subsequent device tests. Their binaries, resources, user configuration, and save
 files are not part of this repository.
 
 | Mod | Inspected version | Current assessment |

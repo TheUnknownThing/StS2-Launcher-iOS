@@ -1,0 +1,338 @@
+diff --git a/src/mono/mono/arch/arm64/arm64-codegen.h b/src/mono/mono/arch/arm64/arm64-codegen.h
+index 67af33589..799902abb 100644
+--- a/src/mono/mono/arch/arm64/arm64-codegen.h
++++ b/src/mono/mono/arch/arm64/arm64-codegen.h
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /*
+  * arm64-codegen.h: ARM64 code generation macros
+  *
+@@ -132,13 +134,13 @@ typedef enum {
+ 	ARMHINT_SEVL = 0x5
+ } ARMHint;
+ 
+-#define arm_emit(p, ins) do { *(guint32*)(p) = (ins); (p) += 4; } while (0)
++#define arm_emit(p, ins) do { *(guint32*)sts2_jit_writable ((p), 4) = (ins); (p) += 4; } while (0)
+ 
+ /* Overwrite bits [offset,offset+nbits] with value */
+ static G_GNUC_UNUSED inline void
+ arm_set_ins_bits (void *p, int offset, int nbits, guint32 value)
+ {
+-	*(guint32*)p = (*(guint32*)p & ~(((1 << nbits) - 1) << offset)) | (value << offset);
++	*(guint32*)sts2_jit_writable (p, 4) = (*(guint32*)p & ~(((1 << nbits) - 1) << offset)) | (value << offset);
+ }
+ 
+ /*
+diff --git a/src/mono/mono/metadata/class.c b/src/mono/mono/metadata/class.c
+index c74c5c12e..cb93ee4d6 100644
+--- a/src/mono/mono/metadata/class.c
++++ b/src/mono/mono/metadata/class.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  * Class management for the Mono runtime
+@@ -6367,6 +6369,7 @@ can_access_type (MonoClass *access_klass, MonoClass *member_klass)
+ 		member_klass_assembly = m_class_get_image (member_klass)->assembly;
+ 	}
+ 
++	if (ignores_access_checks_to (access_klass_assembly, member_klass_assembly)) return TRUE;
+ 	access_level = mono_class_get_flags (member_klass) & TYPE_ATTRIBUTE_VISIBILITY_MASK;
+ 
+ 	if (mono_type_is_generic_argument (m_class_get_byval_arg (member_klass)))
+@@ -6438,6 +6441,7 @@ can_access_member (MonoClass *access_klass, MonoClass *member_klass, MonoClass*
+ 	}
+ 
+ 	MonoImage *member_klass_image = m_class_get_image (member_klass);
++	if (ignores_access_checks_to (access_klass_assembly, member_klass_image->assembly)) return TRUE;
+ 	/* Partition I 8.5.3.2 */
+ 	/* the access level values are the same for fields and methods */
+ 	switch (access_level) {
+diff --git a/src/mono/mono/mini/method-to-ir.c b/src/mono/mono/mini/method-to-ir.c
+index 97985da73..cfb380e3c 100644
+--- a/src/mono/mono/mini/method-to-ir.c
++++ b/src/mono/mono/mini/method-to-ir.c
+@@ -3005,7 +3005,7 @@ emit_class_init (MonoCompile *cfg, MonoClass *klass, gboolean for_field_access)
+ 
+ 	context_used = mini_class_check_context_used (cfg, klass);
+ 
+-	if (cfg->compile_aot && !for_field_access && mono_class_is_before_field_init (klass))
++	if (!for_field_access && mono_class_is_before_field_init (klass))
+ 		/* Only field accesses trigger initialization */
+ 		return;
+ 
+@@ -4205,15 +4205,11 @@ mini_field_access_needs_cctor_run (MonoCompile *cfg, MonoMethod *method, MonoCla
+ 			return FALSE;
+ 	}
+ 
+-	if (mono_class_is_before_field_init (klass)) {
+-		if (cfg->method == method)
+-			return FALSE;
+-	}
+ 
+ 	if (!mono_class_needs_cctor_run (klass, method))
+ 		return FALSE;
+ 
+-	if (! (method->flags & METHOD_ATTRIBUTE_STATIC) && (klass == method->klass))
++	if (!mono_class_is_before_field_init (klass) && ! (method->flags & METHOD_ATTRIBUTE_STATIC) && (klass == method->klass))
+ 		/* The initialization is already done before the method is called */
+ 		return FALSE;
+ 
+@@ -9569,7 +9565,7 @@ calli_end:
+ 					 * call in mono_jit_runtime_invoke () can abort the finalizer thread.
+ 					 * As a workaround, we call class cctors before allocating objects.
+ 					 */
+-					if (mini_field_access_needs_cctor_run (cfg, method, cmethod->klass, vtable) && !(g_slist_find (class_inits, cmethod->klass))) {
++					if (!mono_class_is_before_field_init (cmethod->klass) && mini_field_access_needs_cctor_run (cfg, method, cmethod->klass, vtable) && !(g_slist_find (class_inits, cmethod->klass))) {
+ 						emit_class_init (cfg, cmethod->klass, TRUE);
+ 						if (cfg->verbose_level > 2)
+ 							printf ("class %s.%s needs init call for ctor\n", m_class_get_name_space (cmethod->klass), m_class_get_name (cmethod->klass));
+diff --git a/src/mono/mono/mini/mini-arm64.c b/src/mono/mono/mini/mini-arm64.c
+index 8410f0939..df636549f 100644
+--- a/src/mono/mono/mini/mini-arm64.c
++++ b/src/mono/mono/mini/mini-arm64.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  * ARM64 backend for the Mono code generator
+@@ -1275,7 +1277,7 @@ emit_thunk (guint8 *code, gconstpointer target)
+ 
+ 	arm_ldrx_lit (code, ARMREG_IP0, code + 8);
+ 	arm_brx (code, ARMREG_IP0);
+-	*(guint64*)code = (guint64)target;
++	*(guint64*)sts2_jit_writable (code, 8) = (guint64)target;
+ 	code += sizeof (guint64);
+ 
+ 	mono_arch_flush_icache (p, GPTRDIFF_TO_INT (code - p));
+@@ -6681,7 +6683,7 @@ mono_arch_emit_exceptions (MonoCompile *cfg)
+ 			code = (guint8*)ALIGN_TO (code, 16);
+ 			pos = cfg->native_code + ji->ip.i;
+ 			arm_neon_ldrq_lit_fixup (pos, code);
+-			memcpy (code, ji->data.target, 16);
++			memcpy (sts2_jit_writable (code, 16), ji->data.target, 16);
+ 			code += 16;
+ 
+ 			remove = TRUE;
+diff --git a/src/mono/mono/mini/mini-runtime.c b/src/mono/mono/mini/mini-runtime.c
+index 14d235bd2..28a37592f 100644
+--- a/src/mono/mono/mini/mini-runtime.c
++++ b/src/mono/mono/mini/mini-runtime.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  * Runtime code for the JIT
+@@ -1521,7 +1523,7 @@ mono_resolve_patch_target_ext (MonoMemoryManager *mem_manager, MonoMethod *metho
+ 
+ 		mono_codeman_enable_write ();
+ 		for (i = 0; i < patch_info->data.table->table_size; i++) {
+-			jump_table [i] = code + GPOINTER_TO_INT (patch_info->data.table->table [i]);
++			((gpointer*)sts2_jit_writable (jump_table, sizeof (gpointer) * patch_info->data.table->table_size)) [i] = code + GPOINTER_TO_INT (patch_info->data.table->table [i]);
+ 		}
+ 		mono_codeman_disable_write ();
+ 
+@@ -1573,7 +1575,7 @@ mono_resolve_patch_target_ext (MonoMemoryManager *mem_manager, MonoMethod *metho
+ 			;
+ 		else {
+ 			if (run_cctors) {
+-				if (!mono_runtime_class_init_full (vtable, error)) {
++				if (!mono_class_is_before_field_init (vtable->klass) && !mono_runtime_class_init_full (vtable, error)) {
+ 					return NULL;
+ 				}
+ 			}
+@@ -2748,7 +2750,7 @@ lookup_start:
+ 		if (!is_ok (error))
+ 			return NULL;
+ 		g_assert (vtable);
+-		if (!mono_runtime_class_init_full (vtable, error))
++		if (!mono_class_is_before_field_init (vtable->klass) && !mono_runtime_class_init_full (vtable, error))
+ 			return NULL;
+ 
+ 		code = MINI_ADDR_TO_FTNPTR (info->code_start);
+@@ -2780,7 +2782,7 @@ lookup_start:
+ 			if (!mono_llvm_only && !mono_class_is_open_constructed_type (m_class_get_byval_arg (method->klass))) {
+ 				vtable = mono_class_vtable_checked (method->klass, error);
+ 				mono_error_assert_ok (error);
+-				if (!mono_runtime_class_init_full (vtable, error))
++				if (!mono_class_is_before_field_init (vtable->klass) && !mono_runtime_class_init_full (vtable, error))
+ 					return NULL;
+ 			}
+ 		}
+@@ -3564,7 +3566,7 @@ mono_jit_runtime_invoke (MonoMethod *method, void *obj, void **params, MonoObjec
+ 	 * We need this here because mono_marshal_get_runtime_invoke can place
+ 	 * the helper method in System.Object and not the target class.
+ 	 */
+-	if (!mono_runtime_class_init_full (info->vtable, error)) {
++	if (!mono_class_is_before_field_init (info->vtable->klass) && !mono_runtime_class_init_full (info->vtable, error)) {
+ 		if (exc)
+ 			*exc = (MonoObject*) mono_error_convert_to_exception (error);
+ 		return NULL;
+diff --git a/src/mono/mono/mini/mini.c b/src/mono/mono/mini/mini.c
+index 395a869ab..8328eacd3 100644
+--- a/src/mono/mono/mini/mini.c
++++ b/src/mono/mono/mini/mini.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  * The new Mono code generator.
+@@ -2009,9 +2011,9 @@ mono_postprocess_patches (MonoCompile *cfg)
+ 				/* Might be NULL if the switch is eliminated */
+ 				if (patch_info->data.table->table [i]) {
+ 					g_assert (patch_info->data.table->table [i]->native_offset);
+-					table [i] = GINT_TO_POINTER (patch_info->data.table->table [i]->native_offset);
++					((gpointer*)sts2_jit_writable (table, sizeof (gpointer) * patch_info->data.table->table_size)) [i] = GINT_TO_POINTER (patch_info->data.table->table [i]->native_offset);
+ 				} else {
+-					table [i] = NULL;
++					((gpointer*)sts2_jit_writable (table, sizeof (gpointer) * patch_info->data.table->table_size)) [i] = NULL;
+ 				}
+ 			}
+ 			patch_info->data.table->table = (MonoBasicBlock**)table;
+@@ -2138,11 +2140,11 @@ mono_codegen (MonoCompile *cfg)
+ 	if (cfg->thunk_area) {
+ 		cfg->thunks_offset = cfg->code_size + unwindlen;
+ 		cfg->thunks = code + cfg->thunks_offset;
+-		memset (cfg->thunks, 0, cfg->thunk_area);
++		memset (sts2_jit_writable (cfg->thunks, cfg->thunk_area), 0, cfg->thunk_area);
+ 	}
+ 
+ 	g_assert (code);
+-	memcpy (code, cfg->native_code, cfg->code_len);
++	memcpy (sts2_jit_writable (code, cfg->code_len), cfg->native_code, cfg->code_len);
+ 	g_free (cfg->native_code);
+ 	cfg->native_code = code;
+ 	code = cfg->native_code + cfg->code_len;
+@@ -4282,7 +4284,7 @@ mono_jit_compile_method_inner (MonoMethod *method, int opt, MonoError *error)
+ 	if (prof_method != method && !jinfo->has_generic_jit_info)
+ 		MONO_PROFILER_RAISE (jit_done, (prof_method, jinfo));
+ 
+-	if (!mono_runtime_class_init_full (vtable, error))
++	if (!mono_class_is_before_field_init (vtable->klass) && !mono_runtime_class_init_full (vtable, error))
+ 		return NULL;
+ 	return MINI_ADDR_TO_FTNPTR (code);
+ }
+diff --git a/src/mono/mono/mini/tramp-arm64.c b/src/mono/mono/mini/tramp-arm64.c
+index f4869988e..24049e29e 100644
+--- a/src/mono/mono/mini/tramp-arm64.c
++++ b/src/mono/mono/mini/tramp-arm64.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  * JIT trampoline code for ARM64
+@@ -78,7 +80,7 @@ mono_arch_patch_jump_trampoline (guint8 *jump_tramp, guint8 *addr)
+ {
+ 	MINI_BEGIN_CODEGEN ();
+ 	guint8 *patch_addr = jump_tramp + JUMP_TRAMP_PATCH_OFFSET;
+-	*(gpointer*)patch_addr = addr;
++	*(gpointer*)sts2_jit_writable (patch_addr, sizeof (gpointer)) = addr;
+ 	MINI_END_CODEGEN (patch_addr, 8, -1, NULL);
+ }
+ 
+@@ -372,7 +374,7 @@ mono_arch_create_specific_trampoline (gpointer arg1, MonoTrampolineType tramp_ty
+ 		arm_ldrx (code, ARMREG_IP0, ARMREG_IP0, 0);
+ 		code = mono_arm_emit_brx (code, ARMREG_IP0);
+ 		g_assert (code - buf == JUMP_TRAMP_PATCH_OFFSET);
+-		*(guint64*)code = (guint64)(gsize)tramp;
++		*(guint64*)sts2_jit_writable (code, 8) = (guint64)(gsize)tramp;
+ 	} else {
+ 		code = mono_arm_emit_imm64 (code, ARMREG_IP1, (guint64)arg1);
+ 		code = mono_arm_emit_imm64 (code, ARMREG_IP0, (guint64)tramp);
+diff --git a/src/mono/mono/utils/mono-codeman.c b/src/mono/mono/utils/mono-codeman.c
+index 26f8715c6..9e88b359d 100644
+--- a/src/mono/mono/utils/mono-codeman.c
++++ b/src/mono/mono/utils/mono-codeman.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  */
+@@ -125,7 +127,7 @@ codechunk_valloc (void *preferred, guint32 size, gboolean no_exec)
+ 	if (freelist) {
+ 		ptr = freelist->data;
+ 		mono_codeman_enable_write ();
+-		memset (ptr, 0, size);
++		memset (sts2_jit_writable (ptr, size), 0, size);
+ 		mono_codeman_disable_write ();
+ 		freelist = g_slist_delete_link (freelist, freelist);
+ 		g_hash_table_insert (valloc_freelists, GUINT_TO_POINTER (size), freelist);
+@@ -229,7 +231,7 @@ mono_codeman_allocation_type (MonoCodeManager const *cman)
+ #ifdef FORCE_MALLOC
+ 	return CODE_FLAG_MALLOC;
+ #else
+-	return cman->dynamic ? CODE_FLAG_MALLOC : CODE_FLAG_MMAP;
++	return CODE_FLAG_MMAP;
+ #endif
+ }
+ 
+@@ -439,9 +441,9 @@ mono_code_manager_invalidate (MonoCodeManager *cman)
+ #endif
+ 
+ 	for (chunk = cman->current; chunk; chunk = chunk->next)
+-		memset (chunk->data, fill_value, chunk->size);
++		memset (sts2_jit_writable (chunk->data, chunk->size), fill_value, chunk->size);
+ 	for (chunk = cman->full; chunk; chunk = chunk->next)
+-		memset (chunk->data, fill_value, chunk->size);
++		memset (sts2_jit_writable (chunk->data, chunk->size), fill_value, chunk->size);
+ }
+ 
+ /**
+@@ -539,6 +541,7 @@ new_codechunk (MonoCodeManager *cman, int size)
+ 	}
+ #endif
+ 
++	chunk_size = (chunk_size + pagesize - 1) & ~(pagesize - 1);
+ 	if (flags == CODE_FLAG_MALLOC) {
+ 		ptr = mono_codeman_malloc (chunk_size + MIN_ALIGN - 1);
+ 		if (!ptr)
+@@ -558,7 +561,7 @@ new_codechunk (MonoCodeManager *cman, int size)
+ 	if (flags == CODE_FLAG_MALLOC) {
+ 		/* Make sure the thunks area is zeroed */
+ 		mono_codeman_enable_write ();
+-		memset (ptr, 0, bsize);
++		memset (sts2_jit_writable (ptr, bsize), 0, bsize);
+ 		mono_codeman_disable_write ();
+ 	}
+ #endif
+diff --git a/src/mono/mono/utils/mono-mmap.c b/src/mono/mono/utils/mono-mmap.c
+index 09af6f899..a24b310ac 100644
+--- a/src/mono/mono/utils/mono-mmap.c
++++ b/src/mono/mono/utils/mono-mmap.c
+@@ -1,3 +1,5 @@
++#include <stddef.h>
++#include <mono/utils/sts2-ios-jit-memory.h>
+ /**
+  * \file
+  * Support for mapping code into the process address space
+@@ -292,6 +294,7 @@ mono_valloc (void *addr, size_t length, int flags, MonoMemAccountType type)
+ 	}
+ #endif
+ 
++	if (flags & MONO_MMAP_JIT) prot &= ~PROT_EXEC;
+ 	mflags |= MAP_ANONYMOUS;
+ 	mflags |= MAP_PRIVATE;
+ 
+@@ -309,6 +312,7 @@ mono_valloc (void *addr, size_t length, int flags, MonoMemAccountType type)
+ 	if (ptr == MAP_FAILED)
+ 		return NULL;
+ 
++	if (flags & MONO_MMAP_JIT) sts2_jit_register (ptr, length);
+ 	mono_account_mem (type, (ssize_t)length);
+ 
+ 	return ptr;
+@@ -326,6 +330,7 @@ mono_vfree (void *addr, size_t length, MonoMemAccountType type)
+ {
+ 	int res;
+ 	BEGIN_CRITICAL_SECTION;
++	if (type == MONO_MEM_ACCOUNT_CODE) sts2_jit_unregister (addr);
+ 	res = munmap (addr, length);
+ 	END_CRITICAL_SECTION;
+ 

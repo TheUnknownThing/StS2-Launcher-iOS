@@ -5,6 +5,11 @@ This experimental community port compiles the game's C# assembly to ARM64 with
 .NET NativeAOT and runs it in Godot's iOS host, with touch and layout adaptations.
 It requires no JIT or jailbreak.
 
+An optional [JIT runtime](docs/jit.md) runs managed mods through Mono and Harmony.
+It installs as **StS2 JIT** beside the NativeAOT app and requires JIT activation
+after each process restart. BaseLib, QuickRestart and Watcher Mod have been exercised
+on iPad; compatibility remains experimental.
+
 **Playable prototype.** Tested on an M4 iPad Pro with iPadOS 18.1 and game
 v0.111.0. Other devices and game versions need testing. This is an unofficial
 project, not affiliated with or endorsed by Mega Crit. You must own and supply
@@ -24,7 +29,8 @@ the game; this repository contains porting code and tools, not game files or an 
 | Game download on the device | Not implemented; prepare content on a Mac |
 | Steam Cloud | QR login, downloads, and vanilla profile import confirmed on iPad; [status and limits](docs/steam-cloud.md) |
 | Resource mods | Experimental cosmetic PCK loader and menu; static checks only; [compatibility](docs/mods.md) |
-| C# mods and modded Cloud imports | Not supported; individual code mods need AOT ports |
+| C# mods | NativeAOT requires individual ports; the optional [JIT build](docs/jit.md) loads managed DLL mods |
+| Modded Cloud imports | Not supported; downloaded files remain archives |
 | LAN multiplayer | Host/join, host-save resume, and Bonjour discovery implemented; static checks only; [guide](docs/multiplayer.md) |
 | iPhone, simulator and App Store distribution | Not validated / not provided by this workflow |
 
@@ -106,6 +112,7 @@ are in Git; raw logs, device identifiers and screenshots stay local.
 - [Troubleshooting](docs/troubleshooting.md)
 - [Save management](docs/saves.md)
 - [Architecture and dependency versions](docs/architecture.md)
+- [Experimental JIT runtime and managed mods](docs/jit.md)
 - [Performance measurement](docs/performance.md)
 - [Contributing and reporting bugs](CONTRIBUTING.md)
 - [Steam Cloud and sync roadmap](docs/steam-cloud.md)
