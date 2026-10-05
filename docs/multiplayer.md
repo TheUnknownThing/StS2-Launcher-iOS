@@ -3,7 +3,7 @@
 The launcher exposes the game's existing ENet transport through **iOS > LAN
 multiplayer**. Standard lobbies support up to four players, direct IPv4 joining,
 and Bonjour discovery of other launcher hosts on the same local network.
-This implementation has static build and offline policy checks only; a complete
+This implementation has build and offline policy checks only; a complete
 multiplayer session has **not** been tested on devices.
 
 ## Host and join

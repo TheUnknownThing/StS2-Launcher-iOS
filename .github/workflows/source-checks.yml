@@ -20,13 +20,15 @@ jobs:
           global-json-file: global.json
       - name: Check repository contents and documentation links
         run: python3 scripts/check_repository.py
-      - name: Test content tooling and benchmark reports
+      - name: Test JIT build tooling, backups, content and reports
         run: python3 -m unittest discover -s scripts/ios -p 'test_*.py'
       - name: Test frame accounting
         run: dotnet run --project tests/ios/FrameWindowTests.csproj -c Release
       - name: Test cloud integrity and save isolation
         run: dotnet run --project tests/cloud/CloudTests.csproj -c Release
-      - name: Check LAN addresses and resource-mod policy offline
+      - name: Check LAN addresses offline
         run: dotnet run --project tests/features/FeatureTests.csproj -c Release
-      - name: Build static patch weaver
-        run: dotnet build src/STS2Weaver -c Release
+      - name: Build JIT dependency adapters
+        run: dotnet build src/STS2JitPrepare -c Release
+      - name: Build JIT support library
+        run: dotnet build src/STS2JitSupport -c Release

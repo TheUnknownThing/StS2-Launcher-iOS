@@ -6,7 +6,7 @@ public enum CloudFileKind { Saves, History, Other }
 
 public sealed record CloudBrowserEntry(CloudFile File, bool IsModded, CloudFileKind Kind, int? Profile, string Title)
 {
-    public string ImportProfile => !IsModded && Kind == CloudFileKind.Saves
+    public string ImportProfile => Kind == CloudFileKind.Saves
         ? CloudProfileImport.SourceProfile(File.Name) : null;
 }
 

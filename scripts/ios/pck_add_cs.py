@@ -2,11 +2,11 @@
 """Append placeholder C# script resources to a Godot 4.x GDPC v3 (unencrypted) pck.
 
 Background: MegaCrit's private "MegaDot" engine packs the game with ZERO .cs
-resources in the pck, relying on a private uid->AOT-type mechanism. Stock Godot
+resources in the pck, relying on a private script-type lookup mechanism. Stock Godot
 4.5.1, however, loads a scene's `[ext_resource type="Script" path="res://...cs"]`
 by calling ResourceLoader::load(res://...cs) -> ResourceFormatLoaderCSharpScript,
 which needs the .cs file to physically exist in the pck. It then maps the path to
-the AOT-compiled type via the ScriptPathAttribute baked into sts2.dll.
+the managed type via the ScriptPathAttribute baked into sts2.dll.
 
 Ground truth (verified against an official Godot 4.5.1 C# export): the packed .cs
 file's CONTENT is irrelevant -- the official exporter stores a 1-byte placeholder

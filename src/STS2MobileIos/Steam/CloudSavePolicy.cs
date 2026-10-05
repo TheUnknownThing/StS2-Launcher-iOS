@@ -9,7 +9,8 @@ public static class CloudSavePolicy
     public static string Classification(string path)
     {
         if (!SafePath(path)) return "Unknown path";
-        if (path.Split('/').Any(part => part.Contains("mod", StringComparison.OrdinalIgnoreCase))) return "Modded - archive only";
+        if (path.StartsWith("modded/", StringComparison.Ordinal))
+            return CloudProfileImport.SourceProfile(path) != null ? "Modded candidate" : "Modded - archive only";
         return Regex.IsMatch(path, @"^(?:[0-9]+/)?profile[1-3]/saves/(?:progress|prefs|current_run)\.save$")
             ? "Vanilla candidate" : "Other file - archive only";
     }

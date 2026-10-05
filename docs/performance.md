@@ -1,8 +1,8 @@
 # Performance and benchmarking
 
-See [the measured iPad results](benchmarks/2026-10-02.md): gameplay averaged
-59.50 FPS over 95 seconds, with a 29.04 ms p99 frame interval. Scene transitions
-still produced longer stalls.
+No sustained performance reference has been published for the Mono JIT runtime.
+Record game/mod versions and separate startup compilation from warmed-up gameplay
+when collecting a baseline. Scene transitions and first-use compilation can stall.
 
 ## Live display
 
@@ -18,9 +18,10 @@ With the profiled build running on the iPad, keep it foreground and play a norma
 run while this command captures two minutes of data:
 
 Enable `"profile": true` in `ios/config.local.json`, build and install the app,
-then launch it. Profiling is off in the public config template. The recorder
-writes individual frame intervals to `Documents/benchmarks/` and flushes a summary
-every five seconds. Background/resume resets the clock to exclude suspended time.
+then enable JIT with `python3 scripts/ios/build.py launch`. Profiling is off in the
+public config template. The recorder writes individual frame intervals to
+`Documents/benchmarks/` and flushes a summary every five seconds.
+Background/resume resets the clock to exclude suspended time.
 
 ```sh
 python3 scripts/ios/benchmark.py capture --seconds 120 \
@@ -34,8 +35,8 @@ local pymobiledevice3 checkout's DVT graphics and process-monitor commands over
 the existing paired connection. It starts profiler clients, leaves the game
 running when finished, and copies only benchmark logs from the app.
 
-Install [uv](https://docs.astral.sh/uv/) to run the optional profiler. The reference
-capture used a development checkout of
+Install [uv](https://docs.astral.sh/uv/) to run the optional profiler. The capture
+tool expects a compatible checkout of
 [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) with `developer dvt
 graphics` and `developer dvt sysmon process monitor process --keep-monitoring`.
 CLI layouts vary by version; check that your checkout supports both commands.
@@ -63,10 +64,10 @@ and batches spanning a transition. `run` includes combat, map, reward and pause
 screens within a run. These are process-frame timings, not GPU presentation times.
 
 Only complete batches within the capture interval are used. The app flushes every
-five seconds, so data at the edges can be omitted. This is a warm-cache session;
-do not describe it as a clean-install or deterministic replay benchmark. The
-profiling overhead is included. Memory leaks, thermal throttling and battery life
-require longer controlled sessions.
+five seconds, so data at the edges can be omitted. Record whether caches were
+populated before capture; do not describe user-driven play as a deterministic
+replay benchmark. The profiling overhead is included. Memory leaks, thermal
+throttling and battery life require longer controlled sessions.
 
 ```sh
 .tools/dotnet/dotnet run --project tests/ios/FrameWindowTests.csproj -c Release

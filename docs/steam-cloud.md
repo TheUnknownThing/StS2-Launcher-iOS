@@ -2,7 +2,7 @@
 
 The experimental Cloud panel is available from **iOS > Steam Cloud**. It provides
 QR login, a file inventory, downloads to a separate archive, and an experimental
-vanilla profile import. Uploading iPad progress to Steam is not implemented.
+vanilla and modded profile import. Uploading iPad progress to Steam is not implemented.
 
 ## Connect
 
@@ -13,10 +13,10 @@ vanilla profile import. Uploading iPad progress to Steam is not implemented.
    **Other files**. The menu opens on **Vanilla > Saves**, with progress and unlocks
    first. Each tab shows its file count; history is sorted newest first.
 5. Select a file to view its path, size, and modification time in the details pane.
-   Import controls are shown only for vanilla profile saves. A preview checks
+   Import controls are shown for vanilla and modded profile saves. A preview checks
    compatibility before the import can be confirmed.
 6. Tap **Download a separate copy** to archive that file on the iPad. Open
-   **Files > On My iPad > StS2 iOS > cloud-downloads** to find it.
+   **Files > On My iPad > StS2 JIT > cloud-downloads** to find it.
 
 Common files in each `profileN/saves/` directory:
 
@@ -50,8 +50,8 @@ Download addresses come from Steam's authenticated connection and can point to
 third-party storage providers. Downloads require HTTPS and do not follow
 redirects.
 
-Paths containing mod metadata are labeled **Modded - archive only**. A
-**Vanilla candidate** label describes the directory naming convention; it is not
+Recognized profile saves are classified as **Vanilla candidate** or **Modded
+candidate**. These labels describe the directory naming convention; they are not
 a guarantee of compatibility. Downloaded JSON can expose a schema/game version,
 but compatibility with the installed game still needs validation.
 
@@ -60,11 +60,11 @@ or write anything to Steam Cloud. This separation is especially important when
 the desktop profile has mods and the iPad runs vanilla. Downloaded saves, tokens,
 and account details must not be included in public bug reports or commits.
 
-## Import a vanilla profile
+## Import a profile
 
 1. Close the desktop game and let Steam finish syncing. Keep it closed during import.
 2. Return to the iPad game's main menu and open **iOS > Steam Cloud**.
-3. Under **Vanilla > Saves**, select **Progress & unlocks**, **Preferences**, or
+3. Under **Vanilla > Saves** or **Modded > Saves**, select **Progress & unlocks**, **Preferences**, or
    **Current run** for the desired profile. The details pane shows the original
    file path and available iPad destination slots.
 4. Choose whether to **Include current run when importing**. Turn this off if
@@ -74,6 +74,17 @@ and account details must not be included in public bug reports or commits.
    and current-run details, then tap **Import into Profile N**.
 6. Close the panel, tap the profile name at the top left of the main menu, and
    select the imported profile. Use **Continue** if you imported a current run.
+
+For modded imports, enable the same mods and versions as on desktop and restart
+the app first. The preview uses the game's current serializers (including mod
+extensions) and loaded models. Modded profiles go to
+`Documents/default/1/modded/profileN`, while vanilla profiles stay in
+`Documents/default/1/profileN`. Slots are counted separately in each save area.
+Import requires the matching mode to be active: disable mods and restart to
+import vanilla profiles. Saves needing managed mod code require the corresponding
+mods to be loaded.
+Save files do not provide a complete dependency/version manifest, so a successful
+preview cannot guarantee that the desktop and iPad mod sets match exactly.
 
 Import requires an inactive slot with no saved files. Empty profile directories
 created by the game, including empty `saves/history` directories, are eligible.
@@ -93,10 +104,10 @@ The preview downloads progress, optional preferences, and the optional current
 run as a group. Cloud metadata is checked again before import; files without
 inventory hashes are downloaded again for comparison. Steam does not provide a
 transactional snapshot across these requests, so the desktop game must stay
-closed. History, desktop settings, multiplayer runs, and `modded/` profiles are
+closed. History, desktop settings, and multiplayer runs are
 excluded.
 
-A dated snapshot under **Files > StS2 iOS > save-backups** preserves the local
+A dated snapshot under **Files > StS2 JIT > save-backups** preserves the local
 account directory, incoming files, and a checksum manifest before a complete
 profile directory is published. The manifest includes private account metadata;
 keep it out of public reports. A failed backup prevents import. The new profile
@@ -114,8 +125,8 @@ Objective-C++ bridge supplies QR images and Keychain access. Steam's service
 interface is unofficial for this launcher and can change independently.
 
 Source tests cover path validation, bounded archive decoding, timestamp
-conflicts, checksum validation, and separate snapshot destinations. The HTTPS QR
-request and a client-protocol request also run in a macOS NativeAOT test executable.
+conflicts, checksum validation, and separate snapshot destinations. Optional
+HTTPS QR and client-protocol probes run through the .NET test executable.
 QR approval, restoring a saved login, authenticated Cloud listing, and downloading
 a separate copy have been exercised on the iPad. This validates the browser and
 archive flow; it does not establish save compatibility or synchronization.
@@ -126,8 +137,11 @@ assembly verified that unknown historical references in a vanilla progress save
 survive a load/serialize cycle; source tests distinguish those references from
 destructive repairs and fatal errors. Vanilla profile import has been confirmed
 on iPad; continued gameplay across every imported save variant remains unverified.
-Import is blocked during a LAN session and while resource mods are active. Disable
-resource mods and restart before importing vanilla progress.
+Modded import tests cover cloud path selection, optional runs, mode mismatches,
+separate slot allocation, unchanged mod data, and backups of both save areas.
+Device validation of modded Cloud import is pending. Import is blocked during a
+LAN session; modded imports require mods active, and vanilla imports require mods
+disabled.
 
 ```sh
 dotnet run --project tests/cloud/CloudTests.csproj -c Release

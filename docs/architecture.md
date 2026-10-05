@@ -1,65 +1,67 @@
 # Architecture
 
-The iOS port reuses the game's locally installed managed assembly and content,
-compiling the patched assembly into a native iOS library.
+The iOS port runs the locally supplied game assembly under Mono JIT inside
+Godot's iOS host. Runtime Harmony patches provide mobile adaptations.
 
 ```mermaid
 flowchart LR
-    A[Local Steam installation] --> B[Copy managed assemblies]
-    B --> C[Static patch weaver]
-    H[Mobile hooks and manifest] --> C
-    C --> D[NativeAOT ARM64 library]
-    E[Godot iOS host + FMOD + Spine] --> F[Signed iOS app]
-    D --> F
-    A --> G[Patch a copy of the content PCK]
-    G --> I[App Documents/StS2.pck]
-    F --> I
+    A[Local Steam installation] --> B[Original managed assemblies]
+    C[Mono JIT + dependency adapters] --> D[Signed Godot iOS app]
+    B --> D
+    E[Mobile hooks + Harmony] --> D
+    F[Native FMOD + Spine] --> D
+    A --> G[Patched copy of content PCK]
+    G --> H[Documents/StS2.pck]
+    D --> I[Content and JIT startup gate]
+    H --> I
+    I --> J[Game + Documents/mods]
 ```
 
-## Static patches and NativeAOT
+## Managed runtime and hooks
 
-`src/STS2Weaver` uses Mono.Cecil to insert the prefix/postfix hooks listed in
-`src/STS2MobileIos/manifest.json`. All entries must succeed before the output
-assembly replaces a previous build. This is a deliberately limited weaver, not a
-general implementation of Harmony. Patch signatures must match the game version.
+`ios/jit/RuntimeHost.mm` implements Godot's managed entry ABI and initializes
+Mono with the iOS runtime pack. `src/STS2Jit/Entry.cs` applies every hook in
+`src/STS2MobileIos/manifest.json` through Harmony, then redirects the game's mod
+scan to `Documents/mods`. Hook failures abort initialization. The stock loader
+retains consent, dependencies, enabled state and modded save isolation.
 
-The hooks adapt platform startup, local settings, touch input, UI layouts and
-background/resume. Steam initialization and unavailable Sentry functionality are
-skipped. Steam login and the Cloud browser use separate HTTPS/TLS WebSocket clients; active
-game saves remain local and automatic cloud sync is not implemented.
+The hooks adapt platform startup, settings, touch input, layouts and suspension.
+Steam platform initialization and unavailable Sentry functionality are skipped.
+The Cloud browser uses separate HTTPS/TLS WebSocket clients; active saves remain
+local. Automatic Cloud synchronization is not implemented.
 
-`ios/sts2.csproj` creates an empty build assembly and then replaces it with the
-woven `sts2.dll` after `CoreCompile` and before `IlcCompile`. NativeAOT compiles
-the resulting assembly and dependencies into an iOS ARM64 library. Godot roots
-the main assembly; the project also roots the mobile hooks and enables reflection
-for JSON serialization. Reflection/trimming warnings still require runtime
-testing of the affected paths.
+`STS2JitPrepare` uses Mono.Cecil to adapt pinned copies of CoreLib and Harmony;
+`STS2JitSupport` connects Harmony patch writes to registered Mono code regions.
+Game and mod assemblies are copied unchanged. See [runtime design and limits](jit.md#runtime-design-and-limits)
+for executable/writable aliases, initialization timing and diagnostic limitations.
 
-No runtime JIT or Harmony patching is required by this workflow. Desktop mods
-that depend on those mechanisms are not supported by implication.
+`Lan/LanSession` opens the game's ENet transport and hands sessions to its normal
+lobbies and handshake. Bonjour discovery is supplied by the native bridge, and
+a persistent client ID is separate from the local save account. See [LAN support](multiplayer.md).
 
-`Mods/ResourceMods` adapts the game's startup mod scan to `Documents/mods`,
-exposing only enabled cosmetic packs accepted by the resource policy. The
-original mod loader retains version validation, resource registration, and
-modded save isolation. See [mod support](mods.md) for the supported subset.
+## Build and native host
 
-`Lan/LanSession` opens the game's ENet transport and hands successful sessions to
-its character-selection/load lobbies. `JoinFlow` performs the original handshake
-and lobby exchange. A persistent client ID is separate from the local save
-account ID. Bonjour in the native bridge advertises waiting hosts and resolves
-nearby IPv4 endpoints; game traffic stays on ENet. See [LAN support](multiplayer.md).
+`build.py` is the command entry point for preparation, runtime compilation, app
+building, installation and JIT activation. `jit.py` supplies the runtime/build
+backend. Each build exports a new shell from `.cache/ios-host/` into
+`.cache/jit-host/`, compiles `sts2.framework`, and uses `prepare_xcode.py` to attach
+the framework, native bridge and JIT gate. The host has no .NET project and needs
+no simulator compilation. Xcode products live in `.cache/xcode-jit/`.
 
-## Host and native extensions
+After Xcode builds, the app receives the original game assemblies, iOS BCL,
+mobile hooks, dependency adapters and native runtime libraries, then is signed
+again. The managed output directory is rebuilt so removed assemblies cannot
+survive an incremental build. Build/install/launch/backup/profiling use the exact
+configured bundle ID.
 
-The Godot exporter receives a separate shell under `.cache/ios-host`, without a
-.NET solution. This avoids its additional simulator builds. The device library
-is published separately and embedded as `sts2.framework` by `prepare_xcode.py`.
-The generated host includes native FMOD/Spine libraries, a registration stub for
-the game's empty custom-FMOD-plugin list, landscape orientations and file sharing.
+The native gate creates the shared Documents folder before Godot starts. It waits
+for `StS2.pck` to reach the prepared size and for the process to have JIT permission.
+The runtime also executes a native-code probe to check executable memory and
+writable aliases. There is no alternate managed execution mode.
 
-The app launches with `--main-pack user://StS2.pck`. The game pack supplies the
-actual project settings and scenes; the small shell PCK in `ios/build` is not a
-replacement for the game content.
+The game starts with `--main-pack user://StS2.pck`; that pack supplies project
+settings and scenes. The small exported shell PCK cannot replace game content.
+The host enables landscape orientation, Files sharing and local network access.
 
 `ios/Sts2Native.mm` is included by the generated Objective-C++ host. It activates
 the iOS playback audio session, stores Steam refresh tokens in Keychain, and
@@ -88,30 +90,34 @@ shaders as encountered. First-use/loading stalls remain possible.
 
 | Path | Purpose |
 | --- | --- |
-| `src/STS2MobileIos/` | Runtime hooks and optional frame recorder |
-| `src/STS2Weaver/` | Build-time IL patching |
-| `scripts/ios/` | Bootstrap, preparation, build, installation, tests and benchmarking |
-| `ios/` | Godot shell, NativeAOT project, config/export templates |
-| `tests/ios/` | Engine-independent frame-accounting tests |
-| `docs/` | Public guides and anonymized benchmark reference |
+| `src/STS2Jit/` | Managed entry point, Harmony hooks and mod discovery |
+| `src/STS2JitPrepare/` | Build-time adapters for pinned runtime dependencies |
+| `src/STS2JitSupport/` | Runtime support for Harmony patch writes and signatures |
+| `src/STS2MobileIos/` | Mobile UI, hooks, Cloud, LAN and optional frame recorder |
+| `scripts/ios/` | Bootstrap, build, installation, backup, tests and benchmarking |
+| `ios/` | Godot shell, native bridge, JIT runtime sources and export/config templates |
+| `tests/` | Offline frame, Cloud and LAN checks |
+| `docs/` | Current usage, compatibility and architecture guides |
 
 Ignored paths contain local inputs and artifacts: `upstream/`, `vendor/`,
-`.tools/`, `.cache/`, `ios/addons/`, `ios/prebuilt/`, `ios/build/`, and `.godot/`.
-Game files, compiled applications, saves, signing data and raw logs are not source.
+`.tools/`, `.cache/`, `ios/addons/`, and `.godot/`. Game files, compiled apps,
+saves, signing data and raw logs are not source.
 
 ## Dependency versions
 
 | Component | Revision used |
 | --- | --- |
 | Original launcher provenance | Ekyso/StS2-Launcher, `1e97cf83a6f030ae639de12c3e953dbc8431b552` |
-| Community iOS patches/weaver | jhaizhou-ops/sts2-ios, `be1144212c7d5ac5d6c78fa56f7cb1d969397389` |
+| Community iOS patches and content tools | jhaizhou-ops/sts2-ios, `be1144212c7d5ac5d6c78fa56f7cb1d969397389` |
 | Godot .NET editor/templates | Official 4.5.1 stable |
 | .NET SDK | 9.0.318 |
+| Mono runtime | 9.0.20 (`3879076d9a06ce098d37c3882fb1845a6627335b`) |
+| Harmony | 2.4.2.0, adapted locally |
 | Mono.Cecil | 0.11.6 |
 | FMOD Godot extension | 6.1.0-4.5.0 |
 | Spine 4.2 runtime | `e7dc1435fa4a0083ab431f1b28e083c14a1f5c68` |
 | godot-cpp | `e83fd0904c13356ed1d4c3d09f8bb9132bdc6b77` |
 | SCons | 4.11.1 |
 
-Archive checksums and download locations are in `scripts/ios/bootstrap.py`.
+Archive checksums and download locations are in `scripts/ios/bootstrap.py` and `scripts/ios/jit.py`.
 See [third-party notices](../THIRD_PARTY_LICENSES.md) for attribution and licenses.

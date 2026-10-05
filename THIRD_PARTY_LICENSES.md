@@ -1,6 +1,6 @@
 # Third-Party Licenses
 
-The iOS port uses Godot, .NET NativeAOT, Mono.Cecil and native FMOD/Spine
+The iOS port uses Godot, .NET Mono, Mono.Cecil and native FMOD/Spine
 components. Game files, dependency binaries and SDK downloads are not distributed in this source
 tree. The project's MIT license does not replace any dependency's own terms.
 
@@ -14,16 +14,15 @@ tree. The project's MIT license does not replace any dependency's own terms.
 - **License**: MIT, copyright (c) 2026 jhaizhou-ops
 - **Source**: https://github.com/jhaizhou-ops/sts2-ios
 - **Revision**: `be1144212c7d5ac5d6c78fa56f7cb1d969397389`
-- **Imported and adapted**: `src/STS2Weaver`, selected patches and helper in
-  `src/STS2MobileIos`, the NativeAOT injection project, and PCK utilities in
-  `scripts/ios`.
+- **Imported and adapted**: Selected patches and helper in
+  `src/STS2MobileIos`, and PCK utilities in `scripts/ios`.
 - **License text**: [third-party/licenses/sts2-ios.LICENSE](third-party/licenses/sts2-ios.LICENSE).
   This license covers the community code, not the game or proprietary middleware.
 
 ## Mono.Cecil
 - **License**: MIT
 - **Source**: https://github.com/jbevain/cecil
-- **Version**: 0.11.6, used by the iOS static assembly weaver.
+- **Version**: 0.11.6, used by the JIT dependency adapters.
 
 ## FMOD Godot Extension
 - **License**: MIT (extension); FMOD itself has separate proprietary terms.
@@ -39,13 +38,25 @@ tree. The project's MIT license does not replace any dependency's own terms.
 - **License**: MIT
 - **Copyright**: (c) Andreas Pardeike
 - **Source**: https://github.com/pardeike/Harmony
-- **Note**: A dependency of the locally supplied game assembly. The iOS port
-  applies its own hooks statically and does not enable runtime Harmony mods.
+- **Note**: A dependency of the locally supplied game assembly. The launcher
+  adapts Harmony 2.4.2.0 locally for
+  Darwin ARM64 executable-memory writes and reflection signature preservation.
 
-## .NET Runtime (NativeAOT)
+## MonoMod
+- **License**: MIT
+- **Source**: https://github.com/MonoMod/MonoMod
+- **Note**: Included in the game's merged Harmony dependency; the JIT adapter
+  uses its Darwin backend. No MonoMod binaries or source are redistributed here.
+
+## .NET Runtime (Mono)
 - **License**: MIT
 - **Copyright**: (c) .NET Foundation and Contributors
 - **Source**: https://github.com/dotnet/runtime
+- **JIT revision**: .NET 9.0.20, `3879076d9a06ce098d37c3882fb1845a6627335b`.
+  The iOS patch changes executable-memory writes, access checks,
+  and static initialization timing. Runtime sources and binaries are downloaded
+  and built locally.
+- **License text**: [third-party/licenses/dotnet-runtime.LICENSE](third-party/licenses/dotnet-runtime.LICENSE).
 
 ## Steam protocol references
 - **Reference**: https://github.com/SteamDatabase/Protobufs
