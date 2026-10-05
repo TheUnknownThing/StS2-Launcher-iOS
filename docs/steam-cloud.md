@@ -16,7 +16,7 @@ vanilla and modded profile import. Uploading iPad progress to Steam is not imple
    Import controls are shown for vanilla and modded profile saves. A preview checks
    compatibility before the import can be confirmed.
 6. Tap **Download a separate copy** to archive that file on the iPad. Open
-   **Files > On My iPad > StS2 iOS > cloud-downloads** to find it.
+   **Files > On My iPad > StS2 JIT > cloud-downloads** to find it.
 
 Common files in each `profileN/saves/` directory:
 
@@ -81,8 +81,8 @@ extensions) and loaded models. Modded profiles go to
 `Documents/default/1/modded/profileN`, while vanilla profiles stay in
 `Documents/default/1/profileN`. Slots are counted separately in each save area.
 Import requires the matching mode to be active: disable mods and restart to
-import vanilla profiles. The NativeAOT build can validate resource-only profiles;
-saves needing managed mod code require the JIT build and the corresponding mods.
+import vanilla profiles. Saves needing managed mod code require the corresponding
+mods to be loaded.
 Save files do not provide a complete dependency/version manifest, so a successful
 preview cannot guarantee that the desktop and iPad mod sets match exactly.
 
@@ -107,7 +107,7 @@ transactional snapshot across these requests, so the desktop game must stay
 closed. History, desktop settings, and multiplayer runs are
 excluded.
 
-A dated snapshot under **Files > StS2 iOS > save-backups** preserves the local
+A dated snapshot under **Files > StS2 JIT > save-backups** preserves the local
 account directory, incoming files, and a checksum manifest before a complete
 profile directory is published. The manifest includes private account metadata;
 keep it out of public reports. A failed backup prevents import. The new profile
@@ -125,8 +125,8 @@ Objective-C++ bridge supplies QR images and Keychain access. Steam's service
 interface is unofficial for this launcher and can change independently.
 
 Source tests cover path validation, bounded archive decoding, timestamp
-conflicts, checksum validation, and separate snapshot destinations. The HTTPS QR
-request and a client-protocol request also run in a macOS NativeAOT test executable.
+conflicts, checksum validation, and separate snapshot destinations. Optional
+HTTPS QR and client-protocol probes run through the .NET test executable.
 QR approval, restoring a saved login, authenticated Cloud listing, and downloading
 a separate copy have been exercised on the iPad. This validates the browser and
 archive flow; it does not establish save compatibility or synchronization.

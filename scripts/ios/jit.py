@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Build, install and launch the experimental iOS Mono JIT game."""
+"""Mono JIT runtime and app backend for build.py."""
 
-import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
 import plistlib
-import re
 import shutil
 import subprocess
 import selectors
@@ -20,7 +18,8 @@ CACHE = ROOT / ".cache"
 SOURCE = ROOT / "vendor/dotnet-runtime-jit"
 BUILD = CACHE / "jit-mono-build"
 PACK = CACHE / "jit-runtime-pack/runtimes/ios-arm64"
-GAME_ROOT = CACHE / "jit-game"
+DERIVED = CACHE / "xcode-jit"
+APP = DERIVED / "Build/Products/Release-iphoneos/StS2.app"
 DOTNET = ROOT / ".tools/dotnet/dotnet"
 VERSION = "9.0.20"
 COMMIT = "3879076d9a06ce098d37c3882fb1845a6627335b"
@@ -30,15 +29,6 @@ PACK_SHA256 = "ccb189791773d4ca77cee3dd03e28dc2a9b6231b479e1e44e28088a378692b3f"
 def run(*args, **kwargs):
     print("+ " + " ".join(str(arg) for arg in args), flush=True)
     return subprocess.run([str(arg) for arg in args], check=True, **kwargs)
-
-
-def config():
-    value = json.loads((ROOT / "ios/config.local.json").read_text())
-    for key in ("bundle_id", "team_id", "device"):
-        if not value.get(key) or value[key].startswith("YOUR_") or not re.fullmatch(r"[A-Za-z0-9.-]+", value[key]):
-            raise SystemExit(f"Set a valid {key} in ios/config.local.json")
-    value["jit_bundle_id"] = value["bundle_id"] + ".jitprobe"
-    return value
 
 
 def signing_identity(app, cfg):
@@ -58,7 +48,7 @@ def native_libraries():
         "libmono-component-debugger-stub-static.a", "libmono-component-hot_reload-stub-static.a",
         "libmono-component-diagnostics_tracing-stub-static.a")]
     if not all(path.is_file() for path in paths):
-        raise SystemExit("Build the runtime first: python3 scripts/ios/jit.py runtime")
+        raise SystemExit("Build the runtime first: python3 scripts/ios/build.py runtime")
     return paths
 
 
@@ -73,15 +63,15 @@ def prepare_adapters(managed):
 def copy_to_device(source, destination, cfg):
     run("xcrun", "devicectl", "device", "copy", "to", "--device", cfg["device"],
         "--source", source, "--destination", destination,
-        "--domain-type", "appDataContainer", "--domain-identifier", cfg["jit_bundle_id"])
+        "--domain-type", "appDataContainer", "--domain-identifier", cfg["bundle_id"])
 
 
 def install_app(app, cfg):
     info = app / "Info.plist"
     if not info.is_file():
-        raise SystemExit("Build the experimental app before installing it")
-    if plistlib.loads(info.read_bytes()).get("CFBundleIdentifier") != cfg["jit_bundle_id"]:
-        raise SystemExit("App bundle ID does not match the experimental ID; rebuild before installing")
+        raise SystemExit("Build the app before installing it")
+    if plistlib.loads(info.read_bytes()).get("CFBundleIdentifier") != cfg["bundle_id"]:
+        raise SystemExit("App bundle ID does not match config; rebuild before installing")
     run("xcrun", "devicectl", "device", "install", "app", "--device", cfg["device"], app)
 
 
@@ -142,42 +132,30 @@ def runtime():
         "mono-component-hot_reload-stub-static", "mono-component-diagnostics_tracing-stub-static")
 
 
-def game():
-    cfg = config()
-    libraries = native_libraries()
+def validate_inputs(steam):
+    native_libraries()
     content = CACHE / "StS2.pck"
-    if not content.is_file():
-        raise SystemExit("Prepare content first with scripts/ios/build.py content")
-    if not (ROOT / "ios/build/StS2.xcodeproj/project.pbxproj").is_file():
-        raise SystemExit("Prepare the Godot host first with scripts/ios/build.py build")
-    steam = Path(cfg.get("game", str(Path.home() / "Library/Application Support/Steam/steamapps/common/Slay the Spire 2/SlayTheSpire2.app"))).expanduser()
-    release = steam / "Contents/Resources/release_info.json"
-    if not release.is_file():
-        raise SystemExit("Missing game release_info.json; set game in ios/config.local.json")
-    if hashlib.sha256((steam / "Contents/Resources/data_sts2_macos_arm64/sts2.dll").read_bytes()).digest() != hashlib.sha256((ROOT / "upstream/game-refs/sts2.dll").read_bytes()).digest():
-        raise SystemExit("Steam game differs from prepared references; prepare matching content first")
-    GAME_ROOT.mkdir(exist_ok=True)
-    for name in ("StS2", "StS2.xcodeproj"):
-        shutil.copytree(ROOT / "ios/build" / name, GAME_ROOT / name, dirs_exist_ok=True)
-    shutil.copy2(ROOT / "ios/jit/JitGate.mm", GAME_ROOT / "StS2/JitGate.mm")
-    dummy = GAME_ROOT / "StS2/dummy.cpp"
-    dummy.write_text(dummy.read_text() + '\n#include "JitGate.mm"\n')
-    for name in ("StS2.xcframework", "MoltenVK.xcframework", "PrivacyInfo.xcprivacy", "StS2.pck"):
-        destination = GAME_ROOT / name
-        if not destination.exists():
-            destination.symlink_to(ROOT / "ios/build" / name)
-    project = GAME_ROOT / "StS2.xcodeproj/project.pbxproj"
-    project.write_text(project.read_text().replace(cfg["bundle_id"], cfg["jit_bundle_id"]))
-    info_path = GAME_ROOT / "StS2/StS2-Info.plist"
-    info = plistlib.loads(info_path.read_bytes())
-    info["CFBundleIdentifier"] = cfg["jit_bundle_id"]
-    info["CFBundleDisplayName"] = "StS2 JIT"
-    info["STS2ContentSize"] = content.stat().st_size
-    info["UIFileSharingEnabled"] = True
-    info["LSSupportsOpeningDocumentsInPlace"] = True
-    info["godot_cmdline"] = ["--main-pack", "user://StS2.pck"]
-    info_path.write_bytes(plistlib.dumps(info))
-    framework = GAME_ROOT / "StS2/dylibs/sts2.framework"
+    metadata = CACHE / "content-input.json"
+    references = ROOT / "upstream/game-refs/sts2.dll"
+    assembly = steam / "Contents/Resources/data_sts2_macos_arm64/sts2.dll"
+    source_pack = steam / "Contents/Resources/Slay the Spire 2.pck"
+    if not all(path.is_file() for path in (content, metadata, references, assembly, source_pack,
+                                          steam / "Contents/Resources/release_info.json")):
+        raise SystemExit("Run build.py prepare and content using the same Steam game before building")
+    expected = json.loads(metadata.read_text())
+    digest = hashlib.sha256(assembly.read_bytes()).hexdigest()
+    if (hashlib.sha256(references.read_bytes()).hexdigest() != digest
+            or expected.get("assembly_sha256") != digest
+            or expected.get("source_pack_bytes") != source_pack.stat().st_size):
+        raise SystemExit("Steam game, prepared references and content differ; rerun prepare and content")
+
+
+def build_game(cfg, steam, host):
+    from prepare_xcode import prepare
+
+    libraries = native_libraries()
+    framework = host / "StS2/dylibs/sts2.framework"
+    framework.mkdir(parents=True, exist_ok=True)
     sdk = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "--show-sdk-path"], text=True).strip()
     run("xcrun", "clang++", "-dynamiclib", "-arch", "arm64", "-isysroot", sdk,
         "-miphoneos-version-min=16.0", "-std=c++17", "-fobjc-arc", "-O2",
@@ -186,15 +164,18 @@ def game():
         *["-Wl,-force_load," + str(library) for library in libraries],
         "-framework", "Foundation", "-framework", "Security", "-lz", "-liconv",
         "-Wl,-install_name,@rpath/sts2.framework/sts2", "-o", framework / "sts2")
-    run("xcodebuild", "-project", GAME_ROOT / "StS2.xcodeproj", "-scheme", "StS2",
+    prepare(host, cfg, (CACHE / "StS2.pck").stat().st_size)
+    run("xcodebuild", "-project", host / "StS2.xcodeproj", "-scheme", "StS2",
         "-configuration", "Release", "-destination", "generic/platform=iOS",
-        "-derivedDataPath", GAME_ROOT / "derived", "-allowProvisioningUpdates",
-        "-allowProvisioningDeviceRegistration", "build")
-    app = GAME_ROOT / "derived/Build/Products/Release-iphoneos/StS2.app"
+        "-derivedDataPath", DERIVED, "-allowProvisioningUpdates",
+        "-allowProvisioningDeviceRegistration", "DEVELOPMENT_TEAM=" + cfg["team_id"], "build")
+    app = APP
     identity = signing_identity(app, cfg)
-    shutil.copy2(release, app / "release_info.json")
+    shutil.copy2(steam / "Contents/Resources/release_info.json", app / "release_info.json")
     managed = app / "Managed"
-    managed.mkdir(exist_ok=True)
+    if managed.exists():
+        shutil.rmtree(managed)
+    managed.mkdir()
     for directory in (PACK / "lib/net9.0", ROOT / "upstream/game-refs"):
         for assembly in directory.glob("*.dll"):
             shutil.copy2(assembly, managed / assembly.name)
@@ -205,30 +186,28 @@ def game():
         destination = app / "Frameworks" / library.name
         shutil.copy2(library, destination)
         run("codesign", "--force", "--sign", identity, destination)
-    entitlements = GAME_ROOT / "derived/Build/Intermediates.noindex/StS2.build/Release-iphoneos/StS2.build/StS2.app.xcent"
+    entitlements = DERIVED / "Build/Intermediates.noindex/StS2.build/Release-iphoneos/StS2.build/StS2.app.xcent"
     run("codesign", "--force", "--sign", identity, "--entitlements", entitlements, app)
 
 
-def install_game(push_content=False, mods=None):
-    cfg = config()
+def install_game(cfg, push_content=False, mods=None):
     if push_content and not (CACHE / "StS2.pck").is_file():
         raise SystemExit("Prepare content first with scripts/ios/build.py content")
     if mods is not None and not mods.is_dir():
         raise SystemExit("--mods must name a directory containing mod folders")
-    install_app(GAME_ROOT / "derived/Build/Products/Release-iphoneos/StS2.app", cfg)
+    install_app(APP, cfg)
     if push_content:
         copy_to_device(CACHE / "StS2.pck", "Documents/StS2.pck", cfg)
     if mods is not None:
         copy_to_device(mods, "Documents/mods", cfg)
-    print("Installed StS2 JIT in its separate sandbox. Enable JIT with the launch command.")
+    print("Installed StS2 JIT. Enable JIT with build.py launch.")
 
 
-def launch(pid=None):
-    cfg = config()
+def launch(cfg, pid=None):
     if pid is None:
         result = CACHE / "jit-launch.json"
         run("xcrun", "devicectl", "device", "process", "launch", "--device", cfg["device"],
-            "--start-stopped", "--terminate-existing", "--json-output", result, cfg["jit_bundle_id"])
+            "--start-stopped", "--terminate-existing", "--json-output", result, cfg["bundle_id"])
         pid = json.loads(result.read_text())["result"]["process"]["processIdentifier"]
     debugger = subprocess.Popen(["xcrun", "lldb", "-o", "settings set use-color false",
         "-o", "settings set show-statusline false", "-o", "device select " + cfg["device"],
@@ -265,22 +244,3 @@ def launch(pid=None):
         if debugger.poll() is None:
             debugger.terminate()
             debugger.wait(timeout=10)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    stages = parser.add_subparsers(dest="stage", required=True)
-    for name in ("runtime", "game"):
-        stages.add_parser(name)
-    installer = stages.add_parser("install-game")
-    installer.add_argument("--content", action="store_true", help="Transfer the prepared game pack (about 2 GB)")
-    installer.add_argument("--mods", type=lambda value: Path(value).expanduser().resolve(), help="Copy this mod directory to Documents/mods")
-    launcher = stages.add_parser("launch")
-    launcher.add_argument("--pid", type=int, help="Enable JIT for an already running experimental app process")
-    args = parser.parse_args()
-    if args.stage == "install-game":
-        install_game(args.content, args.mods)
-    elif args.stage == "launch":
-        launch(args.pid)
-    else:
-        globals()[args.stage]()

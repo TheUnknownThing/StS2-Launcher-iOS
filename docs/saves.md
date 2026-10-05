@@ -2,13 +2,15 @@
 
 The iOS build creates local saves in its own app sandbox. Steam Cloud downloads
 are kept separately and do not replace active saves. A Steam save created
-with mods may reference content that is not present in the vanilla iOS build.
+with mods may reference content that is unavailable unless the same mods are loaded.
 
 ## Keep progress when updating
 
-Use `build.py install` with the same bundle ID. This replaces the application
-while preserving its data container. Changing the bundle ID creates a separate
-app; uninstalling removes that app's local saves and game content.
+Use `build.py install` with the same bundle ID, then `build.py launch` to enable
+JIT. This replaces the application while preserving its data container. Changing
+the bundle ID creates a separate app; uninstalling removes that app's local saves
+and game content. For an existing JIT installation, use its full identifier as
+described in the [build guide](building.md#2-configure-signing-and-game-input).
 
 ## Back up iOS saves
 
@@ -27,7 +29,9 @@ Each backup gets a new dated directory beneath `.cache/save-backups/`, with a
 SHA-256 manifest for the copied files. An interrupted or empty copy is not
 published as a completed backup. Existing backup directories are never replaced.
 The command copies `Documents/default`, including profile settings and saves;
-it excludes game content, Steam login credentials, and benchmark recordings.
+it excludes game content, Steam login credentials, mod files/configuration, and
+benchmark recordings. Retain `Documents/mods` and `Documents/mod_configs`
+separately when migrating modded saves.
 Keep the game at the main menu throughout the copy; this is not a transactional
 snapshot of an actively running game.
 
@@ -54,8 +58,9 @@ directory. In the tested build, profile saves live beneath
 `Documents/default/1/profile1/saves/`; other profiles or future versions may use
 different paths. `Documents/StS2.pck` is game content, not a save backup.
 
-The backup command reads from the device. Automatic restore and desktop-save
-migration are not provided. Before manually restoring a backup, stop the game,
+The backup command reads from the device. Automatic restore is not provided;
+compatible desktop profiles can be imported through the Cloud panel. Before
+manually restoring a backup, stop the game,
 keep another copy of current data, and use the same game version. Do not replace
 Steam saves with a test iOS profile.
 
@@ -71,7 +76,7 @@ profile. Select it using the game's profile picker. See the Cloud guide for
 compatibility checks and restrictions. Automatic synchronization and uploads are
 not enabled. Credentials are stored in the iOS Keychain.
 
-[Resource mods](mods.md) use the game's separate `default/1/modded` save tree,
+[Managed and resource mods](mods.md) use the game's separate `default/1/modded` save tree,
 which the backup command also includes. Vanilla Cloud import is disabled while
 mods are active. [LAN clients](multiplayer.md) also need `Documents/lan.cfg` to
 retain their identity in a host's save; keep that file separately when migrating

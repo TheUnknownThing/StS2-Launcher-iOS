@@ -31,7 +31,7 @@ extern "C" __attribute__((visibility("default"))) int sts2_jit_patch(
         sys_icache_invalidate(target, size);
         return 0;
     }
-    // Native/AOT executable detours need a separate backend; never revoke execute
+    // Native executable detours need a separate backend; never revoke execute
     // permission from pages that another thread may currently be running.
     return ENOTSUP;
 }

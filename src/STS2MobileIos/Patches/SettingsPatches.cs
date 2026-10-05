@@ -48,7 +48,7 @@ public static class SettingsPatches
     // prefix on MegaCrit.Sts2.Core.Nodes.Screens.Settings.NVSyncPaginator.GetVSyncString
     // (static, returns string). Fixes swapped Off/On labels (upstream bug).
     // iOS port note: the target parameter is the VSyncType enum; the hook must declare
-    // the exact enum type (the weaver passes arguments unboxed, unlike Harmony).
+    // the exact enum type expected by the game method.
     public static bool GetVSyncStringPrefix(VSyncType vsyncType, ref string __result)
     {
         try

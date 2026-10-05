@@ -12,7 +12,7 @@ Describe larger design changes before implementing them, especially save sync.
   `test(ios): ...` or `docs: ...`.
 - Explain the problem, final behavior, verification and remaining limits in a PR.
 - Update the support table when a feature becomes tested; do not equate a
-  successful AOT compilation with complete gameplay compatibility.
+  successful build with complete gameplay compatibility.
 - Preserve upstream copyright notices and dependency provenance.
 
 This repository contains the iOS implementation, tools and documentation.
@@ -22,25 +22,29 @@ notices and dependency documentation.
 
 ## Tests without game files
 
-Python report/content tests use synthetic data:
+Python build, backup, report and content tests use synthetic data:
 
 ```sh
 python3 -m unittest discover -s scripts/ios -p 'test_*.py'
 ```
 
-Frame-accounting tests require .NET 9 but no Godot, game files or iOS device:
+The .NET checks require .NET 9 but no Godot, game files or iOS device:
 
 ```sh
 dotnet run --project tests/ios/FrameWindowTests.csproj -c Release
 dotnet run --project tests/cloud/CloudTests.csproj -c Release
+dotnet run --project tests/features/FeatureTests.csproj -c Release
+dotnet build src/STS2JitPrepare -c Release
+dotnet build src/STS2JitSupport -c Release
 ```
 
-If you used bootstrap, substitute `.tools/dotnet/dotnet` for `dotnet`. The static
-weaver can also be built independently with `dotnet build src/STS2Weaver -c Release`.
+If you used bootstrap, substitute `.tools/dotnet/dotnet` for `dotnet`.
+The JIT adapters and support library build independently of proprietary game files.
 CI runs these checks without proprietary files or signing credentials.
 
-For runtime changes, build and test on a physical device. Exercise the affected
-path and a fresh run, card input, save/relaunch and background/resume as relevant.
+For runtime changes, build and test on a physical device with JIT enabled.
+Exercise the affected path and a fresh run, card input, save/relaunch and
+background/resume as relevant.
 Use isolated iOS saves. Describe any device validation you could not perform.
 
 ## Repository contents

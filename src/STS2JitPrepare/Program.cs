@@ -34,7 +34,7 @@ if (args[0] == "corelib")
 else if (args[0] == "harmony")
 {
     if (assembly.Name.Version != new Version(2, 4, 2, 0))
-        throw new NotSupportedException("The experimental backend currently targets Harmony 2.4.2.0.");
+        throw new NotSupportedException("The iOS backend targets Harmony 2.4.2.0.");
     const string system = "MonoMod.Core.Platforms.Systems.MacOSSystem";
     var arm64 = (int)module.GetType("MonoMod.Utils.ArchitectureKind").Fields.Single(f => f.Name == "Arm64").Constant;
     var archIl = Replace(Method("MonoMod.Utils.PlatformDetection", "get_Architecture"));
@@ -75,4 +75,4 @@ try
     File.Move(temporary, args[3], overwrite: true);
 }
 finally { if (File.Exists(temporary)) File.Delete(temporary); }
-Console.WriteLine($"Prepared {args[0]} for the experimental iOS JIT runtime.");
+Console.WriteLine($"Prepared {args[0]} for the iOS JIT runtime.");

@@ -11,14 +11,14 @@ is excluded from Git. Share only a small, redacted excerpt when reporting a bug.
 | Game assembly is missing | Run `prepare` against the macOS ARM64 `.app`, or supply `--game` for another Steam library. |
 | An SDK checksum fails | Inspect the named cached download; retry/resume an incomplete download or remove that archive before downloading again. |
 | Existing native checkout has a different revision | Bootstrap deliberately refuses to move it; use a clean checkout or resolve your local dependency changes explicitly. |
-| A weaver target is missing | The Steam game may have updated. Confirm the tested game version and do not weaken the all-patches-must-succeed rule. |
-| Framework/editor import fails | Rerun `prepare` after bootstrap and check native dependency paths. Regenerate with `build --export-host`. |
-| App opens but game content cannot load | Complete `install --content`; `Documents/StS2.pck` must be the full game pack, not `ios/build/StS2.pck`. |
+| A Harmony target or dependency checksum fails | Confirm the tested game/runtime versions and matching prepared inputs; hook or adapter failures must be resolved before startup. |
+| Framework/editor import fails | Rerun `prepare` after bootstrap and check native dependency paths. Run `build` to export a fresh host. |
+| App opens but game content cannot load | Complete `install --content`; `Documents/StS2.pck` must be the full game pack, not `.cache/jit-host/StS2.pck`. |
 | Old app fails to open after several days | A development provisioning profile may have expired; rebuild and install the same bundle ID. |
-| New game version crashes | Rebuild managed code and content from the same installation. NativeAOT success alone does not prove runtime compatibility. |
+| New game version crashes | Rebuild managed code and content from the same installation. Build success alone does not prove runtime compatibility. |
 | UI or card dragging behaves incorrectly | Report the screen, device size, game version, and exact touch gesture. iPhone layouts are not validated. |
 | Brief hitch on a new scene/effect | Shader/resource loading may stall. Capture frame timings before changing rendering settings. |
-| No audio | Check in-game volume and the iPad's output route. The native host uses the playback audio session, including in Silent Mode; rebuild/install if upgrading from the initial prototype. |
+| No audio | Check in-game volume and the iPad's output route. The native host uses the playback audio session, including in Silent Mode. |
 | Cannot right-click a card | Hold a card in a card list for about half a second to open its upgraded preview. Moving your finger cancels the hold; combat hand dragging is unchanged. |
 | Steam cannot connect | Retry with a working connection; disconnect and reconnect for an expired session. Cloud downloads are experimental and kept separately from active saves. |
 | No available iPad profile slot | Check the slot status under **Vanilla > Saves**. Import accepts an inactive slot with no files, including empty directories created by the game. Profiles containing saves, history, or backups are preserved. |
@@ -30,17 +30,20 @@ mkdir -p .cache/logs
 python3 scripts/ios/build.py build > .cache/logs/build.log 2>&1
 ```
 
-To observe a development launch:
+To start the app and enable JIT:
 
 ```sh
-xcrun devicectl device process launch \
-  --device YOUR_IPAD_COREDEVICE_ID \
-  --console YOUR_BUNDLE_ID
+python3 scripts/ios/build.py launch
 ```
 
-NativeAOT currently emits reflection/trimming warnings from the game and its
-dependencies. Record the concrete runtime failure and relevant warning when
-investigating; do not treat every warning as either fatal or harmless.
+If the app waits at the JIT screen, confirm the debugger can attach to the
+configured device and app. JIT permission must be enabled after each process
+restart. For an already running process use `launch --pid PID`. See the
+[JIT guide](jit.md) for activation and runtime limitations.
+
+Startup and mod errors are written to `Documents/jit-game.log`, available through
+Files. It is replaced on each game startup. If a mod blocks startup, close the app,
+remove that mod folder through Files, and relaunch with JIT enabled.
 
 For FPS, CPU and memory measurements, use the [performance guide](performance.md).
 The benchmark command requires the documented pymobiledevice3 CLI capabilities;

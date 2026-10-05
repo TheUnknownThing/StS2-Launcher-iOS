@@ -1,14 +1,13 @@
-# iOS project
+# iOS host
 
-This directory contains the Godot shell and NativeAOT project. Start with the
-[root README](../README.md) for project status and the quick start.
+This directory contains the Godot shell, native bridge, Mono JIT runtime host and
+startup gate. Start with [build and install](../docs/building.md), then read
+[JIT activation](../docs/jit.md) and [architecture](../docs/architecture.md).
 
-- [Build and install](../docs/building.md)
-- [Architecture](../docs/architecture.md)
-- [Save management](../docs/saves.md)
-- [Troubleshooting](../docs/troubleshooting.md)
-- [Performance and benchmarks](../docs/performance.md)
+`config.example.json` is the public configuration template. Keep signing/device
+settings in ignored `config.local.json`. All tools use its exact `bundle_id`.
+Native dependencies in `addons/` and `.godot/` caches are generated locally;
+exported projects and built apps live under `.cache/` at the repository root.
 
-`config.example.json` is a public template. Copy it to `config.local.json` for
-personal signing/device settings. `addons/`, `prebuilt/`, `build/`, `.godot/`, and
-the local config are generated or private and are excluded from Git.
+Use `python3 scripts/ios/build.py build` from the repository root to regenerate
+the host and build the JIT app. Do not edit generated Xcode output.

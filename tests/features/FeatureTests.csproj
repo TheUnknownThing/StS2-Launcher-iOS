@@ -6,6 +6,5 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/STS2MobileIos/Lan/LanAddress.cs" Link="LanAddress.cs" />
-    <Compile Include="../../src/STS2MobileIos/Mods/ResourceModPolicy.cs" Link="ResourceModPolicy.cs" />
   </ItemGroup>
 </Project>

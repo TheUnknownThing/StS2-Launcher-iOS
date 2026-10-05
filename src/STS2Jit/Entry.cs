@@ -25,7 +25,6 @@ public static class Entry
         {
             Console.SetOut(new LogWriter());
             Console.SetError(Console.Out);
-            STS2MobileIos.MobileUi.ManagedModsEnabled = true;
             var harmony = new Harmony("sts2.ios.jit.mobile");
             Assembly game = typeof(ModManager).Assembly;
             Assembly mobile = typeof(STS2MobileIos.MobileUi).Assembly;
@@ -33,7 +32,6 @@ public static class Entry
             foreach (var patch in manifest.RootElement.GetProperty("patches").EnumerateArray())
             {
                 string hookType = patch.GetProperty("hookType").GetString()!;
-                if (hookType == "STS2MobileIos.Mods.ResourceMods") continue;
                 Type targetType = game.GetType(patch.GetProperty("targetType").GetString()!, true)!;
                 string methodName = patch.GetProperty("targetMethod").GetString()!;
                 var target = targetType.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)

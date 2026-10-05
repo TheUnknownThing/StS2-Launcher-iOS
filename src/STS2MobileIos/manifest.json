@@ -218,20 +218,6 @@
       "hookMethod": "ReadyPostfix"
     },
     {
-      "targetType": "MegaCrit.Sts2.Core.Modding.ModManager",
-      "targetMethod": "Initialize",
-      "kind": "prefix",
-      "hookType": "STS2MobileIos.Mods.ResourceMods",
-      "hookMethod": "InitializePrefix"
-    },
-    {
-      "targetType": "MegaCrit.Sts2.Core.Modding.ModManager",
-      "targetMethod": "ReadModsInDirRecursive",
-      "kind": "prefix",
-      "hookType": "STS2MobileIos.Mods.ResourceMods",
-      "hookMethod": "ScanPrefix"
-    },
-    {
       "targetType": "MegaCrit.Sts2.Core.Nodes.Screens.MainMenu.NMultiplayerSubmenu",
       "targetMethod": "OnHostPressed",
       "kind": "prefix",

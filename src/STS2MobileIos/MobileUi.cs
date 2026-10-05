@@ -5,7 +5,6 @@ namespace STS2MobileIos;
 
 public static class MobileUi
 {
-    public static bool ManagedModsEnabled { get; set; }
     private static readonly FrameWindow Frames = new();
     private static Label _fps;
     private static bool _installed;
@@ -87,17 +86,7 @@ public static class MobileUi
         var multiplayer = new Button { Text = "LAN multiplayer", CustomMinimumSize = new Vector2(0, 48) };
         list.AddChild(multiplayer);
         multiplayer.Pressed += () => { panel.Hide(); lan.Show(); };
-        if (ManagedModsEnabled)
-        {
-            list.AddChild(new Label { Text = "Add mod folders in Files > StS2 JIT > mods.\nClose the app before changing mod files.\nEnable JIT again when restarting." });
-        }
-        else
-        {
-            var mods = new Mods.ModsPanel(root);
-            var modButton = new Button { Text = "Resource mods", CustomMinimumSize = new Vector2(0, 48) };
-            list.AddChild(modButton);
-            modButton.Pressed += () => { panel.Hide(); mods.Show(); };
-        }
+        list.AddChild(new Label { Text = "Add mod folders in Files > StS2 JIT > mods.\nClose the app before changing mod files.\nEnable JIT again when restarting." });
         var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(0, 44) };
         list.AddChild(close);
         close.Pressed += () => panel.Hide();
